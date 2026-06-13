@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { SectionHeader } from "@/components/section-header";
 import { InlineNotice } from "@/components/ui/inline-notice";
-import { buttonVariants } from "@/components/ui/button";
+import { DEMO_AUTH_PASSWORD, VERIFIER_DEMO_URL } from "@/lib/auth/demo-accounts";
 import { cn } from "@/lib/cn";
-import { VERIFIER_DEMO_URL, DEMO_AUTH_PASSWORD } from "@/lib/auth/demo-accounts";
+import Link from "next/link";
 
 const roles = [
   {
@@ -43,7 +42,6 @@ export default function DemoPage() {
       context="Demo"
       links={[
         { href: "/", label: "Home" },
-        { href: "/sign-in", label: "Sign in" },
       ]}
     >
       <SectionHeader
