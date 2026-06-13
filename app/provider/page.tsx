@@ -20,7 +20,7 @@ export default function ProviderPage() {
       context="Provider"
       links={[
         { href: "/demo", label: "Demo" },
-        { href: "/resident/r_marcus", label: "Wallet" },
+        { href: "/wallet", label: "Wallet" },
         { href: "/admin", label: "Admin" },
       ]}
     >

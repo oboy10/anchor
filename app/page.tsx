@@ -32,7 +32,7 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/resident/r_marcus" className={buttonVariants("primary", "md")}>
+          <Link href="/wallet" className={buttonVariants("primary", "md")}>
             View sample wallet
             <ArrowRight className="size-4" aria-hidden />
           </Link>

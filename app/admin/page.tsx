@@ -40,7 +40,7 @@ export default function AdminPage() {
       context="Admin"
       links={[
         { href: "/demo", label: "Demo" },
-        { href: "/resident/r_marcus", label: "Wallet" },
+        { href: "/wallet", label: "Wallet" },
       ]}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -63,8 +63,8 @@ export default function AdminPage() {
         <h2 className="text-lg font-semibold text-ink">Quick links</h2>
         <ul className="space-y-1 text-sm">
           <li>
-            <Link href="/resident/r_marcus" className="text-accent hover:text-accent-hover">
-              Marcus&apos;s wallet
+            <Link href="/wallet" className="text-accent hover:text-accent-hover">
+              My wallet
             </Link>
           </li>
           <li>

@@ -9,30 +9,28 @@ export interface DemoAuthAccount {
   email: string;
   label: string;
   role: DemoRole;
-  slug?: string;
   redirect: string;
 }
 
+// The server only ever learns an account's role — no resident name, slug, or
+// fingerprint. Residents land on /wallet, which resolves their identity locally.
 export const DEMO_AUTH_ACCOUNTS: DemoAuthAccount[] = [
   {
     email: "marcus@demo.anchor",
     label: "Marcus (resident)",
     role: "resident",
-    slug: "r_marcus",
-    redirect: "/resident/r_marcus",
+    redirect: "/wallet",
   },
   {
     email: "dawn@demo.anchor",
     label: "Dawn (resident)",
     role: "resident",
-    slug: "r_dawn",
-    redirect: "/resident/r_dawn",
+    redirect: "/wallet",
   },
   {
     email: "provider@demo.anchor",
     label: "Provider",
     role: "provider",
-    slug: "p_hope_shelter",
     redirect: "/provider",
   },
   {

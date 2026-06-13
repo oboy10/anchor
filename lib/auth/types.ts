@@ -9,7 +9,7 @@ export interface AuthProfile {
 }
 
 export function redirectForRole(profile: AuthProfile): string {
-  if (profile.role === "resident" && profile.slug) return `/resident/${profile.slug}`;
+  if (profile.role === "resident") return "/wallet";
   if (profile.role === "provider") return "/provider";
   if (profile.role === "admin") return "/admin";
   return "/demo";

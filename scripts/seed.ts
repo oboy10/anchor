@@ -25,7 +25,6 @@ async function main() {
     throw new Error("Firebase Admin is not configured. Set FIREBASE_* env vars.");
   }
   const { DEMO_AUTH_ACCOUNTS, DEMO_AUTH_PASSWORD } = await import("../lib/auth/demo-accounts");
-  const { seedResidents, seedProviders } = await import("../lib/demo/seed");
   const { registerEmailHash } = await import("../lib/firebase/email-registry");
 
   const auth = getAdminAuth();
@@ -40,23 +39,13 @@ async function main() {
         email: account.email,
         password: DEMO_AUTH_PASSWORD,
         emailVerified: true,
-        displayName: account.label,
       });
       uid = created.uid;
     }
 
-    let fingerprint: string | undefined;
-    if (account.role === "resident") {
-      fingerprint = seedResidents.find((r) => r.slug === account.slug)?.fingerprint;
-    } else if (account.role === "provider") {
-      fingerprint = seedProviders.find((p) => p.slug === account.slug)?.fingerprint;
-    }
-
-    await auth.setCustomUserClaims(uid, {
-      role: account.role,
-      fingerprint: fingerprint ?? null,
-      slug: account.slug,
-    });
+    // Role is the only thing the server stores about an account — no resident
+    // name, slug, or fingerprint. Identity is resolved locally on /wallet.
+    await auth.setCustomUserClaims(uid, { role: account.role });
 
     await registerEmailHash(account.email);
   }

@@ -48,6 +48,7 @@ import type {
 } from "@/types";
 
 export const STORAGE_KEY = "anchor.store.v1";
+export const ACTIVE_KEY = "anchor.activeResident";
 export const STORE_VERSION = 1;
 
 type AttestationDoc = Attestation & {
@@ -342,6 +343,30 @@ export async function listResidents(): Promise<Resident[]> {
 export async function getResident(idOrSlug: string): Promise<Resident | undefined> {
   const fp = await resolveFingerprint(idOrSlug);
   return fp ? (await load()).residents.get(fp) : undefined;
+}
+
+/**
+ * The wallet shown at /wallet. The "active" identity is chosen locally and
+ * persisted in the browser — it is never sent to or known by the server, so no
+ * resident name or slug is needed in the URL or in any server record.
+ */
+export async function getActiveResident(): Promise<Resident | undefined> {
+  const store = await load();
+  const stored = isBrowser() ? localStorage.getItem(ACTIVE_KEY) : null;
+  if (stored) {
+    const fp = store.residents.has(stored)
+      ? stored
+      : store.slugToFingerprint.get(stored);
+    if (fp && store.residents.has(fp)) return store.residents.get(fp);
+  }
+  return store.residents.values().next().value;
+}
+
+export async function setActiveResident(idOrSlug: string): Promise<void> {
+  const fp = await resolveFingerprint(idOrSlug);
+  if (!fp) return;
+  if (isBrowser()) localStorage.setItem(ACTIVE_KEY, fp);
+  emit();
 }
 
 export async function listProviders(): Promise<Provider[]> {
