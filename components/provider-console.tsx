@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { issueCredentialAction } from "@/app/actions";
+import { issueCredentialAction } from "@/lib/local/actions";
 import { CredentialCard } from "./credential-card";
 import { SectionHeader } from "./section-header";
 import { FormField, SelectField, TextAreaField } from "./ui/field";

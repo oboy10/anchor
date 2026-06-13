@@ -55,6 +55,12 @@ export function base64UrlToBytes(b64url: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+export function bytesToBase64Url(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 /** Cryptographically random bytes. */
 export function randomBytes(length: number): Uint8Array<ArrayBuffer> {
   return globalThis.crypto.getRandomValues(new Uint8Array(length));

@@ -7,8 +7,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { getFirebaseAuth, getFirebaseFirestore, isFirebaseClientConfigured } from "@/lib/firebase/client";
+import { getFirebaseAuth, isFirebaseClientConfigured } from "@/lib/firebase/client";
 import type { AuthProfile } from "@/lib/auth/types";
 import type { DemoRole } from "@/lib/auth/demo-accounts";
 
@@ -23,32 +22,13 @@ interface AuthContextValue {
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
 async function loadProfile(user: User): Promise<AuthProfile> {
+  // Profile is derived entirely from Firebase Auth custom claims — there is no
+  // server-side profile record (the local-first store holds the actual data).
   const token = await user.getIdTokenResult();
   const role = (token.claims.role as DemoRole | undefined) ?? "resident";
   const fingerprint = token.claims.fingerprint as string | undefined;
   const slug = token.claims.slug as string | undefined;
-
-  if (fingerprint && slug) {
-    return { uid: user.uid, email: user.email, role, fingerprint, slug };
-  }
-
-  if (isFirebaseClientConfigured()) {
-    const link = await getDoc(
-      doc(getFirebaseFirestore(), "authLinks", user.uid),
-    );
-    if (link.exists()) {
-      const data = link.data();
-      return {
-        uid: user.uid,
-        email: user.email,
-        role: (data.role as DemoRole) ?? "resident",
-        fingerprint: data.fingerprint as string | undefined,
-        slug: data.slug as string | undefined,
-      };
-    }
-  }
-
-  return { uid: user.uid, email: user.email, role: "resident" };
+  return { uid: user.uid, email: user.email, role, fingerprint, slug };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -68,9 +48,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const p = await loadProfile(next);
           setProfile(p);
-          // #region agent log
-          fetch('http://127.0.0.1:7770/ingest/c43addfd-9145-4c13-b4b0-3d3f620110e8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4e4885'},body:JSON.stringify({sessionId:'4e4885',location:'auth-provider.tsx:onAuthStateChanged',message:'auth profile loaded',data:{role:p.role,slug:p.slug},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
         } catch {
           setProfile(null);
         }

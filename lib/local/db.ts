@@ -1,26 +1,19 @@
 /**
- * In-memory attestation store.
+ * Local-first data store.
  *
- * Core records are signed Attestations (from → to edges). Credentials are a
- * UI view derived from attestation properties. User identity is Ed25519
- * keypairs keyed by fingerprint.
+ * ALL application data lives in the browser (localStorage) as portable JSON.
+ * Nothing here is sent to or stored on a server — the only server-side state
+ * is a hash list of registered emails (see lib/firebase/email-registry).
+ *
+ * Core records are signed Attestations (from → to edges); credentials are a
+ * derived view. Signing/verifying uses WebCrypto (lib/crypto), which runs in
+ * the browser, so the whole ledger is self-contained and portable.
  */
-import "server-only";
-import { randomBytes } from "node:crypto";
-import type {
-  Attestation,
-  CorrectionEntry,
-  Credential,
-  CredentialEvidence,
-  CredentialType,
-  Endorsement,
-  Fingerprint,
-  Provider,
-  Resident,
-  SharePacket,
-  User,
-  VerificationResult,
-} from "@/types";
+import {
+  bytesToBase64Url,
+  bytesToHex,
+  randomBytes,
+} from "@/lib/crypto/bytes";
 import {
   credentialsFromAttestations,
   credentialFromAttestation,
@@ -38,29 +31,60 @@ import {
   seedProviders,
   seedResidents,
   DEMO_KEYS,
-  SLUG_TO_KEY,
 } from "@/lib/demo/seed";
+import type {
+  Attestation,
+  CorrectionEntry,
+  Credential,
+  CredentialEvidence,
+  CredentialType,
+  Endorsement,
+  Fingerprint,
+  Provider,
+  Resident,
+  SharePacket,
+  User,
+  VerificationResult,
+} from "@/types";
+
+export const STORAGE_KEY = "anchor.store.v1";
+export const STORE_VERSION = 1;
+
+type AttestationDoc = Attestation & {
+  credentialId?: string;
+  issueDate?: string;
+};
 
 interface Store {
   users: Map<Fingerprint, User>;
   slugToFingerprint: Map<string, Fingerprint>;
   residents: Map<Fingerprint, Resident>;
   providers: Map<Fingerprint, Provider>;
-  /** Attestations per resident (to fingerprint), oldest first. */
-  attestations: Map<Fingerprint, Attestation[]>;
-  /** Resident notes keyed by credentialId (not signed — resident-owned metadata). */
+  /** Attestations keyed by resident (`to`) fingerprint, oldest first. */
+  attestations: Map<Fingerprint, AttestationDoc[]>;
+  /** Resident notes keyed by credentialId (not signed — resident-owned). */
   residentNotes: Map<string, string>;
-  /** Mutable status overrides keyed by credentialId. */
   statusOverrides: Map<string, "active" | "corrected" | "superseded">;
   endorsements: Endorsement[];
   packets: Map<string, SharePacket>;
 }
 
-const GLOBAL_KEY = "__anchor_store__";
-type GlobalWithStore = typeof globalThis & {
-  [GLOBAL_KEY]?: Store;
-  __anchor_seed__?: Promise<Store>;
-};
+/** Portable on-disk shape. Plain JSON arrays — easy to export/import. */
+export interface PersistedStore {
+  v: number;
+  users: User[];
+  residents: Resident[];
+  providers: Provider[];
+  attestations: AttestationDoc[];
+  residentNotes: { credentialId: string; note: string }[];
+  statusOverrides: { credentialId: string; status: string }[];
+  endorsements: Endorsement[];
+  packets: SharePacket[];
+}
+
+// ---------------------------------------------------------------------------
+// Serialization
+// ---------------------------------------------------------------------------
 
 function emptyStore(): Store {
   return {
@@ -76,58 +100,60 @@ function emptyStore(): Store {
   };
 }
 
-function isValidStore(store: Store | undefined): store is Store {
-  return !!store?.users && !!store.slugToFingerprint && !!store.attestations;
-}
-
-/**
- * Seeding signs attestations with WebCrypto (async), so store access is async.
- * The seed runs once; concurrent callers share the same in-flight promise.
- */
-function getStore(): Promise<Store> {
-  const g = globalThis as GlobalWithStore;
-  if (isValidStore(g[GLOBAL_KEY])) return Promise.resolve(g[GLOBAL_KEY]);
-  if (!g.__anchor_seed__) {
-    g.__anchor_seed__ = (async () => {
-      const store = emptyStore();
-      await seed(store);
-      g[GLOBAL_KEY] = store;
-      return store;
-    })();
-  }
-  return g.__anchor_seed__;
-}
-
-// ---------------------------------------------------------------------------
-// Identity helpers
-// ---------------------------------------------------------------------------
-
-function registerUser(store: Store, key: keyof typeof DEMO_KEYS): User {
-  const material = DEMO_KEYS[key];
-  const user: User = {
-    fingerprint: material.fingerprint,
-    publicKey: material.publicKey,
-    privateKey: material.privateKey,
+function serialize(store: Store): PersistedStore {
+  const attestations: AttestationDoc[] = [];
+  for (const list of store.attestations.values()) attestations.push(...list);
+  return {
+    v: STORE_VERSION,
+    users: [...store.users.values()],
+    residents: [...store.residents.values()],
+    providers: [...store.providers.values()],
+    attestations,
+    residentNotes: [...store.residentNotes.entries()].map(([credentialId, note]) => ({
+      credentialId,
+      note,
+    })),
+    statusOverrides: [...store.statusOverrides.entries()].map(([credentialId, status]) => ({
+      credentialId,
+      status,
+    })),
+    endorsements: store.endorsements,
+    packets: [...store.packets.values()],
   };
-  store.users.set(user.fingerprint, user);
-  return user;
 }
 
-/** Resolve slug or fingerprint to canonical fingerprint. */
-export async function resolveFingerprint(
-  idOrSlug: string,
-): Promise<Fingerprint | undefined> {
-  const store = await getStore();
-  if (store.users.has(idOrSlug)) return idOrSlug;
-  return store.slugToFingerprint.get(idOrSlug);
-}
-
-async function getUser(fingerprint: Fingerprint): Promise<User | undefined> {
-  return (await getStore()).users.get(fingerprint);
+function deserialize(data: PersistedStore): Store {
+  const store = emptyStore();
+  for (const u of data.users) store.users.set(u.fingerprint, u);
+  for (const r of data.residents) {
+    store.residents.set(r.fingerprint, r);
+    store.slugToFingerprint.set(r.slug, r.fingerprint);
+  }
+  for (const p of data.providers) {
+    store.providers.set(p.fingerprint, p);
+    store.slugToFingerprint.set(p.slug, p.fingerprint);
+  }
+  for (const a of data.attestations) {
+    const list = store.attestations.get(a.to) ?? [];
+    list.push(a);
+    store.attestations.set(a.to, list);
+  }
+  for (const { credentialId, note } of data.residentNotes) {
+    store.residentNotes.set(credentialId, note);
+  }
+  for (const { credentialId, status } of data.statusOverrides) {
+    store.statusOverrides.set(
+      credentialId,
+      status as "active" | "corrected" | "superseded",
+    );
+  }
+  store.endorsements = data.endorsements ?? [];
+  for (const p of data.packets) store.packets.set(p.token, p);
+  return store;
 }
 
 // ---------------------------------------------------------------------------
-// Seeding
+// Seeding (deterministic demo data, signed client-side)
 // ---------------------------------------------------------------------------
 
 async function appendAttestation(
@@ -170,18 +196,28 @@ async function appendAttestation(
     input.residentFingerprint,
     properties,
   );
-
+  const doc: AttestationDoc = {
+    ...record,
+    credentialId: input.id,
+    issueDate: input.issueDate,
+  };
   const list = store.attestations.get(input.residentFingerprint) ?? [];
-  list.push(record);
+  list.push(doc);
   store.attestations.set(input.residentFingerprint, list);
   return record;
 }
 
-async function seed(store: Store) {
-  for (const key of Object.keys(DEMO_KEYS) as (keyof typeof DEMO_KEYS)[]) {
-    registerUser(store, key);
-  }
+async function seed(): Promise<Store> {
+  const store = emptyStore();
 
+  for (const key of Object.keys(DEMO_KEYS) as (keyof typeof DEMO_KEYS)[]) {
+    const m = DEMO_KEYS[key];
+    store.users.set(m.fingerprint, {
+      fingerprint: m.fingerprint,
+      publicKey: m.publicKey,
+      privateKey: m.privateKey,
+    });
+  }
   for (const r of seedResidents) {
     store.residents.set(r.fingerprint, { ...r });
     store.slugToFingerprint.set(r.slug, r.fingerprint);
@@ -190,7 +226,6 @@ async function seed(store: Store) {
     store.providers.set(p.fingerprint, { ...p });
     store.slugToFingerprint.set(p.slug, p.fingerprint);
   }
-
   for (const issuance of seedIssuances) {
     const residentFp = store.slugToFingerprint.get(issuance.residentSlug)!;
     const issuerFp = store.slugToFingerprint.get(issuance.issuerSlug)!;
@@ -208,7 +243,6 @@ async function seed(store: Store) {
       store.residentNotes.set(issuance.id, issuance.residentNote);
     }
   }
-
   store.endorsements = seedEndorsements.map((e) => ({ ...e }));
 
   const residentFp = store.slugToFingerprint.get(seedPacket.residentSlug)!;
@@ -225,48 +259,113 @@ async function seed(store: Store) {
     createdAt: new Date(now + seedPacket.createdOffsetDays * day).toISOString(),
     expiresAt: new Date(now + seedPacket.expiresOffsetDays * day).toISOString(),
   });
+
+  return store;
 }
 
-export async function reseed(): Promise<void> {
-  const g = globalThis as GlobalWithStore;
-  g[GLOBAL_KEY] = undefined;
-  g.__anchor_seed__ = undefined;
-  await getStore();
+// ---------------------------------------------------------------------------
+// Load / persist / subscribe
+// ---------------------------------------------------------------------------
+
+let cache: Store | undefined;
+let loadPromise: Promise<Store> | undefined;
+const subscribers = new Set<() => void>();
+
+function isBrowser(): boolean {
+  return typeof window !== "undefined" && typeof localStorage !== "undefined";
+}
+
+function persist(store: Store): void {
+  if (!isBrowser()) return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(store)));
+}
+
+function emit(): void {
+  for (const cb of subscribers) cb();
+}
+
+async function load(): Promise<Store> {
+  if (cache) return cache;
+  if (loadPromise) return loadPromise;
+  loadPromise = (async () => {
+    let store: Store;
+    const raw = isBrowser() ? localStorage.getItem(STORAGE_KEY) : null;
+    if (raw) {
+      try {
+        store = deserialize(JSON.parse(raw) as PersistedStore);
+      } catch {
+        store = await seed();
+        persist(store);
+      }
+    } else {
+      store = await seed();
+      persist(store);
+    }
+    cache = store;
+    return store;
+  })();
+  return loadPromise;
+}
+
+/** Subscribe to store mutations (for React). Returns an unsubscribe fn. */
+export function subscribe(cb: () => void): () => void {
+  subscribers.add(cb);
+  return () => subscribers.delete(cb);
+}
+
+/** Resolve the store once it is loaded (used by hooks for readiness). */
+export async function ready(): Promise<void> {
+  await load();
+}
+
+async function commit(store: Store): Promise<void> {
+  persist(store);
+  emit();
 }
 
 // ---------------------------------------------------------------------------
 // Read API
 // ---------------------------------------------------------------------------
 
+export async function resolveFingerprint(
+  idOrSlug: string,
+): Promise<Fingerprint | undefined> {
+  const store = await load();
+  if (store.users.has(idOrSlug)) return idOrSlug;
+  return store.slugToFingerprint.get(idOrSlug);
+}
+
 export async function listResidents(): Promise<Resident[]> {
-  return [...(await getStore()).residents.values()];
+  return [...(await load()).residents.values()];
 }
 
 export async function getResident(idOrSlug: string): Promise<Resident | undefined> {
   const fp = await resolveFingerprint(idOrSlug);
-  return fp ? (await getStore()).residents.get(fp) : undefined;
+  return fp ? (await load()).residents.get(fp) : undefined;
 }
 
 export async function listProviders(): Promise<Provider[]> {
-  return [...(await getStore()).providers.values()];
+  return [...(await load()).providers.values()];
 }
 
 export async function getProvider(idOrSlug: string): Promise<Provider | undefined> {
   const fp = await resolveFingerprint(idOrSlug);
-  return fp ? (await getStore()).providers.get(fp) : undefined;
+  return fp ? (await load()).providers.get(fp) : undefined;
 }
 
 export async function getPublicKey(fingerprint: Fingerprint) {
-  const u = await getUser(fingerprint);
-  if (!u) return undefined;
-  return { fingerprint: u.fingerprint, publicKey: u.publicKey };
+  const u = (await load()).users.get(fingerprint);
+  return u ? { fingerprint: u.fingerprint, publicKey: u.publicKey } : undefined;
 }
 
-function attestationsToCredentials(
-  store: Store,
-  residentFingerprint: Fingerprint,
-): Credential[] {
-  const records = store.attestations.get(residentFingerprint) ?? [];
+export async function getUserByFingerprint(
+  fingerprint: Fingerprint,
+): Promise<User | undefined> {
+  return (await load()).users.get(fingerprint);
+}
+
+function ledgerFor(store: Store, fp: Fingerprint): Credential[] {
+  const records = store.attestations.get(fp) ?? [];
   const creds = credentialsFromAttestations(records, store.residentNotes);
   return creds.map((c) => ({
     ...c,
@@ -275,9 +374,9 @@ function attestationsToCredentials(
 }
 
 export async function getLedger(idOrSlug: string): Promise<Credential[]> {
+  const store = await load();
   const fp = await resolveFingerprint(idOrSlug);
-  if (!fp) return [];
-  return attestationsToCredentials(await getStore(), fp);
+  return fp ? ledgerFor(store, fp) : [];
 }
 
 export async function getCredential(
@@ -290,11 +389,11 @@ export async function getCredential(
 export async function getEndorsements(idOrSlug: string): Promise<Endorsement[]> {
   const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];
-  return (await getStore()).endorsements.filter((e) => e.residentFingerprint === fp);
+  return (await load()).endorsements.filter((e) => e.residentFingerprint === fp);
 }
 
 export async function getPacket(token: string): Promise<SharePacket | undefined> {
-  return (await getStore()).packets.get(token);
+  return (await load()).packets.get(token);
 }
 
 export async function listPacketsForResident(
@@ -302,23 +401,24 @@ export async function listPacketsForResident(
 ): Promise<SharePacket[]> {
   const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];
-  return [...(await getStore()).packets.values()]
+  return [...(await load()).packets.values()]
     .filter((p) => p.residentFingerprint === fp)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function getAttestations(idOrSlug: string): Promise<Attestation[]> {
+  const fp = await resolveFingerprint(idOrSlug);
+  if (!fp) return [];
+  return [...((await load()).attestations.get(fp) ?? [])];
 }
 
 export async function verifyResidentChain(
   idOrSlug: string,
 ): Promise<VerificationResult> {
-  const store = await getStore();
+  const store = await load();
   const fp = await resolveFingerprint(idOrSlug);
   if (!fp) {
-    return {
-      chainValid: false,
-      signaturesValid: false,
-      entriesChecked: 0,
-      entries: [],
-    };
+    return { chainValid: false, signaturesValid: false, entriesChecked: 0, entries: [] };
   }
   const records = store.attestations.get(fp) ?? [];
   const result = await verifyAttestations(records, fp, (from) =>
@@ -345,12 +445,12 @@ export interface IssueCredentialInput {
 export async function issueCredential(
   input: IssueCredentialInput,
 ): Promise<Credential> {
-  const store = await getStore();
+  const store = await load();
   const residentFp = await resolveFingerprint(input.residentId);
   const issuerFp = await resolveFingerprint(input.issuerId);
   if (!residentFp || !issuerFp) throw new Error("Unknown resident or issuer");
 
-  const id = `c_${randomBytes(4).toString("hex")}`;
+  const id = `c_${bytesToHex(randomBytes(4))}`;
   const record = await appendAttestation(store, {
     id,
     residentFingerprint: residentFp,
@@ -362,7 +462,7 @@ export async function issueCredential(
     evidence: input.evidence,
     corrects: input.corrects,
   });
-
+  await commit(store);
   return credentialFromAttestation(record);
 }
 
@@ -370,19 +470,19 @@ export async function issueCorrection(
   issuerId: string,
   correction: CorrectionEntry,
 ): Promise<Credential> {
-  const store = await getStore();
+  const store = await load();
   const issuerFp = await resolveFingerprint(issuerId);
   const residentFp = correction.residentFingerprint;
   if (!issuerFp) throw new Error("Unknown issuer");
 
-  const ledger = attestationsToCredentials(store, residentFp);
-  const original = ledger.find((c) => c.id === correction.corrects);
+  const original = ledgerFor(store, residentFp).find(
+    (c) => c.id === correction.corrects,
+  );
   if (!original) throw new Error("Cannot correct an entry that does not exist");
 
   store.statusOverrides.set(correction.corrects, "corrected");
-
   const record = await appendAttestation(store, {
-    id: `c_${randomBytes(4).toString("hex")}`,
+    id: `c_${bytesToHex(randomBytes(4))}`,
     residentFingerprint: residentFp,
     issuerFingerprint: issuerFp,
     credentialType: original.credentialType,
@@ -395,7 +495,7 @@ export async function issueCorrection(
     },
     corrects: correction.corrects,
   });
-
+  await commit(store);
   return credentialFromAttestation(record);
 }
 
@@ -404,11 +504,12 @@ export async function setResidentNote(
   credentialId: string,
   note: string | undefined,
 ): Promise<void> {
+  const store = await load();
   const fp = await resolveFingerprint(idOrSlug);
   if (!fp) throw new Error("Resident not found");
-  const store = await getStore();
   if (note?.trim()) store.residentNotes.set(credentialId, note.trim());
   else store.residentNotes.delete(credentialId);
+  await commit(store);
 }
 
 export interface CreatePacketInput {
@@ -421,14 +522,12 @@ export interface CreatePacketInput {
   expiresInDays: number;
 }
 
-export async function createPacket(
-  input: CreatePacketInput,
-): Promise<SharePacket> {
-  const store = await getStore();
+export async function createPacket(input: CreatePacketInput): Promise<SharePacket> {
+  const store = await load();
   const fp = await resolveFingerprint(input.residentId);
   if (!fp) throw new Error("Resident not found");
 
-  const token = `pk_${randomBytes(9).toString("base64url")}`;
+  const token = `pk_${bytesToBase64Url(randomBytes(9))}`;
   const now = Date.now();
   const packet: SharePacket = {
     token,
@@ -442,23 +541,43 @@ export async function createPacket(
     expiresAt: new Date(now + input.expiresInDays * 24 * 60 * 60 * 1000).toISOString(),
   };
   store.packets.set(token, packet);
+  await commit(store);
   return packet;
 }
 
 export async function revokePacket(token: string): Promise<void> {
-  const packet = (await getStore()).packets.get(token);
-  if (packet && !packet.revokedAt) packet.revokedAt = new Date().toISOString();
+  const store = await load();
+  const packet = store.packets.get(token);
+  if (packet && !packet.revokedAt) {
+    packet.revokedAt = new Date().toISOString();
+    await commit(store);
+  }
 }
 
-/** Export raw attestations for admin inspection. */
-export async function getAttestations(idOrSlug: string): Promise<Attestation[]> {
-  const fp = await resolveFingerprint(idOrSlug);
-  if (!fp) return [];
-  return [...((await getStore()).attestations.get(fp) ?? [])];
+// ---------------------------------------------------------------------------
+// Portability: reseed / export / import
+// ---------------------------------------------------------------------------
+
+export async function reseed(): Promise<void> {
+  const store = await seed();
+  cache = store;
+  loadPromise = Promise.resolve(store);
+  await commit(store);
 }
 
-export async function getUserByFingerprint(
-  fingerprint: Fingerprint,
-): Promise<User | undefined> {
-  return getUser(fingerprint);
+/** Export the entire local store as portable, pretty-printed JSON. */
+export async function exportData(): Promise<string> {
+  return JSON.stringify(serialize(await load()), null, 2);
+}
+
+/** Replace the local store with imported JSON. Throws on malformed input. */
+export async function importData(json: string): Promise<void> {
+  const parsed = JSON.parse(json) as PersistedStore;
+  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.users)) {
+    throw new Error("Not a valid Anchor export.");
+  }
+  const store = deserialize(parsed);
+  cache = store;
+  loadPromise = Promise.resolve(store);
+  await commit(store);
 }

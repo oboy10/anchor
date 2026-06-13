@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Copy, ExternalLink } from "lucide-react";
-import { createPacketAction } from "@/app/actions";
+import { createPacketAction } from "@/lib/local/actions";
+import { buildShareUrl } from "@/lib/local/share-link";
 import { CredentialCard } from "./credential-card";
 import { Dialog } from "./ui/dialog";
 import { FormField, SelectField, TextAreaField } from "./ui/field";
@@ -47,6 +47,7 @@ export function PacketBuilder({
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [createdToken, setCreatedToken] = React.useState<string | null>(null);
+  const [createdShareUrl, setCreatedShareUrl] = React.useState<string>("");
   const [emailSent, setEmailSent] = React.useState(false);
   const [emailError, setEmailError] = React.useState<string | null>(null);
   const [sentToEmail, setSentToEmail] = React.useState<string | null>(null);
@@ -70,6 +71,7 @@ export function PacketBuilder({
     setExpiresInDays("14");
     setError(null);
     setCreatedToken(null);
+    setCreatedShareUrl("");
     setEmailSent(false);
     setEmailError(null);
     setSentToEmail(null);
@@ -117,6 +119,7 @@ export function PacketBuilder({
       return;
     }
     setCreatedToken(result.token);
+    setCreatedShareUrl(result.shareUrl);
     setEmailSent(result.emailSent);
     setEmailError(result.emailError ?? null);
     setSentToEmail(result.reviewerEmail ?? null);
@@ -127,12 +130,12 @@ export function PacketBuilder({
   }
 
   const preview = active.filter((c) => selected.has(c.id));
-  const shareUrl =
-    typeof window !== "undefined" && createdToken
-      ? `${window.location.origin}/verify/${createdToken}`
-      : createdToken
-        ? `/verify/${createdToken}`
-        : "";
+  const shareUrl = createdShareUrl;
+
+  async function openPacket(token: string) {
+    const url = await buildShareUrl(token, window.location.origin);
+    if (url) window.open(url, "_blank", "noopener");
+  }
 
   return (
     <>
@@ -182,13 +185,14 @@ export function PacketBuilder({
                   </StatusBadge>
                   {state === "active" ? (
                     <>
-                      <Link
-                        href={`/verify/${p.token}`}
+                      <button
+                        type="button"
+                        onClick={() => openPacket(p.token)}
                         className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:text-accent-hover"
                       >
                         Preview
                         <ExternalLink className="size-3.5" aria-hidden />
-                      </Link>
+                      </button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -447,12 +451,12 @@ export function PacketBuilder({
                 <Copy className="size-4" aria-hidden />
                 {copied ? "Copied" : "Copy link"}
               </Button>
-              <Link href={`/verify/${createdToken}`} target="_blank">
-                <Button type="button" variant="ghost">
+              {createdToken ? (
+                <Button type="button" variant="ghost" onClick={() => openPacket(createdToken)}>
                   Open preview
                   <ExternalLink className="size-4" aria-hidden />
                 </Button>
-              </Link>
+              ) : null}
             </div>
           </div>
         ) : null}

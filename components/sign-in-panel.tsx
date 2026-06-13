@@ -32,6 +32,12 @@ export function SignInPanel() {
     setError(null);
     try {
       await signIn(targetEmail, targetPassword);
+      // Record the email as a hash in the only server-side collection.
+      fetch("/api/register-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail }),
+      }).catch(() => {});
       const account = DEMO_AUTH_ACCOUNTS.find((a) => a.email === targetEmail);
       router.push(account?.redirect ?? "/demo");
     } catch (e) {

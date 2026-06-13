@@ -30,7 +30,7 @@ const roles = [
   {
     title: "Admin",
     description:
-      "Seed demo data and inspect ledger integrity in Firestore.",
+      "Inspect identities and ledger integrity; export, import, or reseed your local data.",
     href: "/sign-in",
     cta: "Sign in as admin",
   },

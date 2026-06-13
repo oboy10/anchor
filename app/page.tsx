@@ -81,7 +81,7 @@ export default function LandingPage() {
 
       <footer className="border-t border-line py-6">
         <p className="mx-auto max-w-3xl px-4 text-sm text-ink-faint sm:px-6">
-          Demo build · data stored in memory unless a database is configured
+          Demo build · all data stored locally in your browser · no server-side records except registered-email hashes
         </p>
       </footer>
     </div>

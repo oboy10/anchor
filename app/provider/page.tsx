@@ -1,16 +1,19 @@
+"use client";
+
 import { AppShell } from "@/components/app-shell";
 import { ProviderConsole } from "@/components/provider-console";
-import { listProviders, listResidents } from "@/lib/data";
+import { LocalDataGate } from "@/components/local-data-gate";
+import { useLocalQuery } from "@/lib/local/hooks";
+import { listProviders, listResidents } from "@/lib/local/db";
 
-export const metadata = {
-  title: "Provider console",
-};
-
-export const dynamic = "force-dynamic";
-
-export default async function ProviderPage() {
-  const providers = await listProviders();
-  const residents = await listResidents();
+export default function ProviderPage() {
+  const query = useLocalQuery(async () => {
+    const [providers, residents] = await Promise.all([
+      listProviders(),
+      listResidents(),
+    ]);
+    return { providers, residents };
+  }, []);
 
   return (
     <AppShell
@@ -21,7 +24,14 @@ export default async function ProviderPage() {
         { href: "/admin", label: "Admin" },
       ]}
     >
-      <ProviderConsole providers={providers} residents={residents} />
+      <LocalDataGate loading={query.loading}>
+        {query.data ? (
+          <ProviderConsole
+            providers={query.data.providers}
+            residents={query.data.residents}
+          />
+        ) : null}
+      </LocalDataGate>
     </AppShell>
   );
 }

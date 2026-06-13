@@ -1,104 +1,26 @@
 rules_version = '2';
 
 /**
- * Anchor Firestore rules
+ * Anchor Firestore rules — local-first build.
  *
- * Design:
- * - Attestations, packets, and provider profiles are written ONLY by the server (Admin SDK).
- * - Residents may read their own data and update their profile + personal notes.
- * - Verifiers use /verify/[token] (server-rendered via Admin SDK), not direct client reads.
- * - Custom claims expected: role ("resident" | "provider"), fingerprint (16 hex chars).
+ * Application data is NOT stored in Firestore; it lives in each user's browser
+ * (see lib/local/db) and travels inside self-contained share links. The only
+ * server-side collection is `registeredEmails`, which holds SHA-256 hashes of
+ * registered emails (no plaintext, no recoverable personal data).
+ *
+ * Writes to that collection go through the Admin SDK (server-side), which
+ * bypasses these rules; clients are denied all direct access.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isAuthed() {
-      return request.auth != null;
+    // Email hash registry — server-only (Admin SDK). No client access.
+    match /registeredEmails/{hash} {
+      allow read, write: if false;
     }
 
-    function myFingerprint() {
-      return request.auth.token.fingerprint;
-    }
-
-    function myRole() {
-      return request.auth.token.role;
-    }
-
-    function isResident() {
-      return myRole() == 'resident';
-    }
-
-    function isProvider() {
-      return myRole() == 'provider';
-    }
-
-    // Public key registry — read when authenticated; writes server-only
-    match /users/{fingerprint} {
-      allow read: if isAuthed();
-      allow write: if false;
-    }
-
-    // Slug → fingerprint lookup
-    match /slugs/{slug} {
-      allow read: if isAuthed();
-      allow write: if false;
-    }
-
-    match /residents/{fingerprint} {
-      allow read: if isAuthed() &&
-        (myFingerprint() == fingerprint || isProvider());
-      allow create: if false;
-      allow update: if isAuthed() && isResident() && myFingerprint() == fingerprint
-        && request.resource.data.fingerprint == fingerprint;
-      allow delete: if false;
-    }
-
-    match /providers/{fingerprint} {
-      allow read: if isAuthed();
-      allow write: if false;
-    }
-
-    // Signed attestations — append-only via server; residents read incoming
-    match /attestations/{nonce} {
-      allow read: if isAuthed() &&
-        (resource.data.to == myFingerprint() || resource.data.from == myFingerprint());
-      allow write: if false;
-    }
-
-    match /statusOverrides/{credentialId} {
-      allow read: if isAuthed();
-      allow write: if false;
-    }
-
-    // Resident-owned notes (not part of signed attestation)
-    match /residentNotes/{docId} {
-      allow read: if isAuthed() && isResident() &&
-        resource.data.fingerprint == myFingerprint();
-      allow create, update: if isAuthed() && isResident() &&
-        request.resource.data.fingerprint == myFingerprint();
-      allow delete: if isAuthed() && isResident() &&
-        resource.data.fingerprint == myFingerprint();
-    }
-
-    match /sharePackets/{token} {
-      allow read: if isAuthed() && isResident() &&
-        resource.data.residentFingerprint == myFingerprint();
-      allow write: if false;
-    }
-
-    match /endorsements/{id} {
-      allow read: if isAuthed();
-      allow write: if false;
-    }
-
-    match /authLinks/{uid} {
-      allow read: if isAuthed() && request.auth.uid == uid;
-      allow write: if false;
-    }
-
-    match /meta/{docId} {
-      allow read: if isAuthed();
-      allow write: if false;
+    // Everything else is denied: no other data is stored here.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { revokePacketAction, setResidentNoteAction } from "@/app/actions";
+import { revokePacketAction, setResidentNoteAction } from "@/lib/local/actions";
 import { FilterChips } from "./filter-chips";
 import { MetricCard } from "./metric-card";
 import { PacketBuilder } from "./packet-builder";
