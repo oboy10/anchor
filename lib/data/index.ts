@@ -36,8 +36,13 @@ async function withStore<T>(
   fetch('http://127.0.0.1:7770/ingest/c43addfd-9145-4c13-b4b0-3d3f620110e8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4e4885'},body:JSON.stringify({sessionId:'4e4885',location:'data/index.ts:withStore',message:'backend branch',data:{useFs},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
   // #endregion
   if (useFs) {
-    await ensureFirestoreSeeded();
-    return firestore(await import("./firestore-store"));
+    try {
+      await ensureFirestoreSeeded();
+      return firestore(await import("./firestore-store"));
+    } catch (error) {
+      console.error("[data] Firestore unavailable, using memory store:", error);
+      return memory(await import("./store"));
+    }
   }
   return memory(await import("./store"));
 }

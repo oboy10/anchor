@@ -8,6 +8,7 @@ import {
 } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { isPrivateKeyFormatValid, normalizePrivateKey } from "./private-key";
 
 let app: App | undefined;
 
@@ -19,12 +20,19 @@ function hasServiceAccountEnv(): boolean {
   );
 }
 
+function hasValidServiceAccountEnv(): boolean {
+  return (
+    hasServiceAccountEnv() &&
+    isPrivateKeyFormatValid(process.env.FIREBASE_PRIVATE_KEY!)
+  );
+}
+
 function hasApplicationDefault(): boolean {
   return Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
 }
 
 export function isFirebaseAdminConfigured(): boolean {
-  return hasServiceAccountEnv() || hasApplicationDefault();
+  return hasValidServiceAccountEnv() || hasApplicationDefault();
 }
 
 export function isFirebaseConfigured(): boolean {
@@ -43,12 +51,12 @@ export function getFirebaseAdminApp(): App {
   if (!app) {
     if (getApps().length) {
       app = getApps()[0]!;
-    } else if (hasServiceAccountEnv()) {
+    } else if (hasValidServiceAccountEnv()) {
       app = initializeApp({
         credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID!,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, "\n"),
+          privateKey: normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY!),
         }),
       });
     } else {

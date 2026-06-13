@@ -103,6 +103,8 @@ vercel --prod
 
 3. Redeploy after adding env vars — server actions need them at runtime. Pushing to `main` also triggers a Vercel production deploy.
 
+**Vercel `FIREBASE_PRIVATE_KEY`:** paste the full key from the service account JSON `private_key` field. Either paste it as one line with `\n` between lines (same as `.env.local`), or paste the multiline PEM directly — do not add extra quotes in the Vercel UI.
+
 Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY`, share packets still work but emails are not sent.
 
 ### Resend setup (custom domain)

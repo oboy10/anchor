@@ -21,6 +21,8 @@ export const metadata = {
   robots: { index: false },
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const residents = await listResidents();
   const providers = await listProviders();
