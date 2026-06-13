@@ -3,10 +3,9 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-let fieldSeq = 0;
 function useFieldId(provided?: string) {
-  const [id] = React.useState(() => provided ?? `field-${++fieldSeq}`);
-  return id;
+  const generated = React.useId();
+  return provided ?? generated;
 }
 
 const inputBase =
