@@ -3,14 +3,20 @@
  *
  * Canonical message body = { from, to, properties, nonce } — signature excluded.
  * Ed25519 signature is 64 bytes over the UTF-8 canonical serialization.
+ *
+ * Cross-platform: WebCrypto + Uint8Array only (no node:crypto, no server-only),
+ * so signing/verifying works in the browser as well as on the server. Signing
+ * and verification are async because SubtleCrypto is async.
  */
-import "server-only";
-import { randomBytes, sign as nodeSign, verify as nodeVerify } from "node:crypto";
-import { canonicalize } from "./canonical";
 import {
-  rawPrivateKeyToNode,
-  rawPublicKeyToNode,
-} from "./user";
+  bytesToHex,
+  hexToBytes,
+  randomBytes,
+  subtle,
+  utf8ToBytes,
+} from "./bytes";
+import { canonicalize } from "./canonical";
+import { importPrivateKey, importPublicKey } from "./user";
 import type {
   Attestation,
   AttestationBody,
@@ -32,37 +38,38 @@ export function attestationBody(
 }
 
 /** Canonical UTF-8 bytes signed by the issuer. */
-export function canonicalAttestationBody(body: AttestationBody): Buffer {
-  return Buffer.from(canonicalize(body), "utf8");
+export function canonicalAttestationBody(
+  body: AttestationBody,
+): Uint8Array<ArrayBuffer> {
+  return utf8ToBytes(canonicalize(body));
 }
 
 export function generateNonce(): string {
-  return randomBytes(16).toString("hex");
+  return bytesToHex(randomBytes(16));
 }
 
 /** Sign an attestation with the issuer's 32-byte private key seed. */
-export function signAttestation(
+export async function signAttestation(
   issuer: Pick<User, "fingerprint" | "privateKey">,
   to: Fingerprint,
   properties: AttestationProperty[],
   nonce: string = generateNonce(),
-): Attestation {
+): Promise<Attestation> {
   if (!issuer.privateKey) throw new Error("Cannot sign without a private key");
 
   const body = attestationBody(issuer.fingerprint, to, properties, nonce);
-  const priv = rawPrivateKeyToNode(Buffer.from(issuer.privateKey, "hex"));
-  const signature = nodeSign(null, canonicalAttestationBody(body), priv).toString(
-    "hex",
-  );
+  const priv = await importPrivateKey(hexToBytes(issuer.privateKey));
+  const sig = await subtle.sign("Ed25519", priv, canonicalAttestationBody(body));
+  const signature = bytesToHex(new Uint8Array(sig));
 
   return { from: issuer.fingerprint, to, properties, nonce, signature };
 }
 
 /** Verify an attestation signature using the issuer's public key. */
-export function verifyAttestation(
+export async function verifyAttestation(
   record: Attestation,
   issuerPublicKey: PublicKeyHex,
-): boolean {
+): Promise<boolean> {
   try {
     const body = attestationBody(
       record.from,
@@ -70,12 +77,12 @@ export function verifyAttestation(
       record.properties,
       record.nonce,
     );
-    const pub = rawPublicKeyToNode(issuerPublicKey);
-    return nodeVerify(
-      null,
-      canonicalAttestationBody(body),
+    const pub = await importPublicKey(issuerPublicKey);
+    return await subtle.verify(
+      "Ed25519",
       pub,
-      Buffer.from(record.signature, "hex"),
+      hexToBytes(record.signature),
+      canonicalAttestationBody(body),
     );
   } catch {
     return false;
@@ -92,11 +99,11 @@ export function attestationId(record: Attestation): string {
  *  - signature valid against issuer's public key
  *  - `to` matches the resident fingerprint
  */
-export function verifyAttestations(
+export async function verifyAttestations(
   records: Attestation[],
   residentFingerprint: Fingerprint,
   resolvePublicKey: (fingerprint: Fingerprint) => PublicKeyHex | undefined,
-): AttestationVerificationResult {
+): Promise<AttestationVerificationResult> {
   const result: AttestationVerificationResult = {
     signaturesValid: true,
     targetsValid: true,
@@ -106,7 +113,7 @@ export function verifyAttestations(
 
   for (const record of records) {
     const pub = resolvePublicKey(record.from);
-    const signatureValid = pub ? verifyAttestation(record, pub) : false;
+    const signatureValid = pub ? await verifyAttestation(record, pub) : false;
     const targetValid = record.to === residentFingerprint;
 
     if (!signatureValid) result.signaturesValid = false;

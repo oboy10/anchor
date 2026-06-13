@@ -195,7 +195,7 @@ export async function verifyResidentChain(idOrSlug: string): Promise<Verificatio
       if (pub) publicKeys.set(r.from, pub.publicKey);
     }
   }
-  const result = verifyAttestations(records, fp, (from) => publicKeys.get(from));
+  const result = await verifyAttestations(records, fp, (from) => publicKeys.get(from));
   return toVerificationResult(result);
 }
 
@@ -226,7 +226,7 @@ export async function issueCredential(input: IssueCredentialInput): Promise<Cred
     corrects: input.corrects,
   });
 
-  const record = signAttestation(
+  const record = await signAttestation(
     { fingerprint: issuerFp, privateKey },
     residentFp,
     properties,

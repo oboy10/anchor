@@ -82,7 +82,7 @@ export async function seedFirestore(db: Firestore = getAdminFirestore()): Promis
       facts: issuance.evidence.facts,
     });
 
-    const record = signAttestation(
+    const record = await signAttestation(
       { fingerprint: issuerFp, privateKey: keyEntry.privateKey },
       residentFp,
       properties,
