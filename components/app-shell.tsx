@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 import * as React from "react";
 import { Header, type HeaderLink } from "./header";
-import { AuthHeaderControls } from "./sign-in-panel";
+import { AccountSwitcher } from "./account-switcher";
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -20,7 +20,7 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="flex min-h-full flex-col">
-      <Header links={links} context={context} trailing={<AuthHeaderControls />} />
+      <Header links={links} context={context} trailing={<AccountSwitcher />} />
       <main
         className={cn(
           "flex-1",

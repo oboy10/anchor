@@ -96,7 +96,7 @@ Rules live in `firestore.rules`. See that file for the security model.
 | `/demo` | Role selector |
 | `/resident/r_marcus` | Resident wallet |
 | `/provider` | Issue credentials |
-| `/verify/demo-maple-street` | Public verification |
+| `/verify` | Public verification (opens a resident's share link) |
 | `/admin` | Seed + inspect ledger |
 
 ## Deploy on Vercel

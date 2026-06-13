@@ -1,80 +1,62 @@
 "use client";
 
+/**
+ * Auth = the local account session (see lib/local/accounts). "Signed in" means
+ * an Ed25519 identity is active and unlocked in this browser. There is no
+ * server-side session — identities live, password-protected, in localStorage.
+ */
 import * as React from "react";
 import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  type User,
-} from "firebase/auth";
-import { getFirebaseAuth, isFirebaseClientConfigured } from "@/lib/firebase/client";
-import type { AuthProfile } from "@/lib/auth/types";
-import type { DemoRole } from "@/lib/auth/demo-accounts";
+  createAccount,
+  getActiveAccount,
+  listAccounts,
+  signOut as signOutAccount,
+  subscribeAccounts,
+  switchAccount,
+  unlockAccount,
+  type AccountMeta,
+} from "@/lib/local/accounts";
 
 interface AuthContextValue {
-  user: User | null;
-  profile: AuthProfile | null;
+  /** All identities stored on this device (locked or unlocked). */
+  accounts: AccountMeta[];
+  /** The active, unlocked account, or null when signed out. */
+  active: AccountMeta | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOutUser: () => Promise<void>;
+  createAccount: (label: string, password: string) => Promise<AccountMeta>;
+  unlock: (fingerprint: string, password: string) => Promise<void>;
+  switchTo: (fingerprint: string) => Promise<void>;
+  signOut: () => void;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 
-async function loadProfile(user: User): Promise<AuthProfile> {
-  // Profile is derived entirely from Firebase Auth custom claims — there is no
-  // server-side profile record (the local-first store holds the actual data).
-  const token = await user.getIdTokenResult();
-  const role = (token.claims.role as DemoRole | undefined) ?? "resident";
-  const fingerprint = token.claims.fingerprint as string | undefined;
-  const slug = token.claims.slug as string | undefined;
-  return { uid: user.uid, email: user.email, role, fingerprint, slug };
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [profile, setProfile] = React.useState<AuthProfile | null>(null);
+  const [accounts, setAccounts] = React.useState<AccountMeta[]>([]);
+  const [active, setActive] = React.useState<AccountMeta | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!isFirebaseClientConfigured()) {
+    const sync = () => {
+      setAccounts(listAccounts());
+      setActive(getActiveAccount());
       setLoading(false);
-      return;
-    }
-    const auth = getFirebaseAuth();
-    return onAuthStateChanged(auth, async (next) => {
-      setUser(next);
-      if (next) {
-        try {
-          const p = await loadProfile(next);
-          setProfile(p);
-        } catch {
-          setProfile(null);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
+    };
+    sync();
+    return subscribeAccounts(sync);
   }, []);
 
-  async function signIn(email: string, password: string) {
-    if (!isFirebaseClientConfigured()) {
-      throw new Error("Firebase Auth is not configured.");
-    }
-    await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
-  }
+  const value: AuthContextValue = {
+    accounts,
+    active,
+    loading,
+    createAccount: (label, password) => createAccount({ label, password }),
+    unlock: unlockAccount,
+    switchTo: switchAccount,
+    signOut: signOutAccount,
+  };
 
-  async function signOutUser() {
-    if (!isFirebaseClientConfigured()) return;
-    await signOut(getFirebaseAuth());
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signOutUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

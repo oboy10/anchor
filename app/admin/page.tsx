@@ -16,7 +16,6 @@ import {
   verifyResidentChain,
 } from "@/lib/local/db";
 import { shortHex } from "@/lib/crypto/user";
-import { seedPacket } from "@/lib/demo/seed";
 
 export default function AdminPage() {
   const query = useLocalQuery(async () => {
@@ -65,14 +64,6 @@ export default function AdminPage() {
           <li>
             <Link href="/wallet" className="text-accent hover:text-accent-hover">
               My wallet
-            </Link>
-          </li>
-          <li>
-            <Link
-              href={`/verify?token=${seedPacket.token}`}
-              className="text-accent hover:text-accent-hover"
-            >
-              Sample verification packet
             </Link>
           </li>
           <li>

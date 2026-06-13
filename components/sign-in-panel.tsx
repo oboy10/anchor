@@ -1,159 +1,234 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { DEMO_AUTH_ACCOUNTS, DEMO_AUTH_PASSWORD, VERIFIER_DEMO_URL } from "@/lib/auth/demo-accounts";
+import { KeyRound, Plus } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import { SectionHeader } from "./section-header";
 import { FormField } from "./ui/field";
 import { Button } from "./ui/button";
 import { InlineNotice } from "./ui/inline-notice";
-import { isFirebaseClientConfigured } from "@/lib/firebase/client";
+import { shortFingerprint } from "@/lib/format";
 
+/**
+ * Sign-in surface for local keypair accounts: create a new password-protected
+ * identity, or unlock one already stored on this device. No server-side auth.
+ */
 export function SignInPanel() {
-  const { signIn } = useAuth();
+  const { accounts, createAccount, unlock } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(DEMO_AUTH_PASSWORD);
+  const params = useSearchParams();
+  const startInCreate = params.get("new") === "1" || accounts.length === 0;
+  const [mode, setMode] = useState<"create" | "unlock">(
+    startInCreate ? "create" : "unlock",
+  );
+
+  return (
+    <div className="mx-auto max-w-md space-y-8">
+      <SectionHeader
+        as="h1"
+        serif
+        title="Sign in"
+        description="Your identity is an Ed25519 keypair stored — password-protected — only in this browser. Verifiers do not need an account."
+      />
+
+      <div className="flex gap-2 rounded-lg border border-line bg-surface-sunken p-1">
+        <ModeTab active={mode === "create"} onClick={() => setMode("create")}>
+          Create account
+        </ModeTab>
+        <ModeTab
+          active={mode === "unlock"}
+          onClick={() => setMode("unlock")}
+          disabled={accounts.length === 0}
+        >
+          Unlock existing
+        </ModeTab>
+      </div>
+
+      {mode === "create" ? (
+        <CreateAccountForm
+          onDone={() => router.push("/wallet")}
+          createAccount={createAccount}
+        />
+      ) : (
+        <UnlockForm
+          onDone={() => router.push("/wallet")}
+          unlock={unlock}
+          accounts={accounts}
+        />
+      )}
+
+    </div>
+  );
+}
+
+function ModeTab({
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 " +
+        (active ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink")
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+function CreateAccountForm({
+  onDone,
+  createAccount,
+}: {
+  onDone: () => void;
+  createAccount: (label: string, password: string) => Promise<unknown>;
+}) {
+  const [label, setLabel] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  if (!isFirebaseClientConfigured()) {
-    return (
-      <InlineNotice tone="warning" title="Firebase not configured">
-        Add NEXT_PUBLIC_FIREBASE_* variables to your environment and redeploy.
-      </InlineNotice>
-    );
-  }
-
-  async function handleSignIn(targetEmail: string, targetPassword: string) {
-    setPending(true);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setPending(true);
     try {
-      await signIn(targetEmail, targetPassword);
-      // Record the email as a hash in the only server-side collection.
-      fetch("/api/register-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail }),
-      }).catch(() => {});
-      const account = DEMO_AUTH_ACCOUNTS.find((a) => a.email === targetEmail);
-      router.push(account?.redirect ?? "/demo");
+      await createAccount(label, password);
+      onDone();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Sign in failed.";
-      setError(msg.includes("invalid-credential") || msg.includes("user-not-found")
-        ? "Account not found. Run npm run seed to create demo users in Firebase Auth."
-        : msg);
+      setError(e instanceof Error ? e.message : "Could not create account.");
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <div className="space-y-8">
-      <SectionHeader
-        as="h1"
-        serif
-        title="Sign in"
-        description="Use a demo account below, or enter email and password. Verifiers do not need an account."
+    <form className="space-y-4" onSubmit={submit}>
+      <InlineNotice tone="calm" title="A new keypair is generated on this device">
+        Your private key is encrypted with this password and never leaves your
+        browser. There is no recovery if you lose it — keep the password safe.
+      </InlineNotice>
+      <FormField
+        label="Account name"
+        placeholder="e.g. Marcus R."
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        autoComplete="name"
       />
-
-      <form
-        className="mx-auto max-w-md space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSignIn(email, password);
-        }}
-      >
-        <FormField
-          label="Email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <FormField
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
-
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
-          Demo accounts
-        </h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Password for all demo accounts:{" "}
-          <code className="rounded bg-surface-sunken px-1 text-xs">{DEMO_AUTH_PASSWORD}</code>
-        </p>
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {DEMO_AUTH_ACCOUNTS.map((account) => (
-            <li key={account.email}>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => handleSignIn(account.email, DEMO_AUTH_PASSWORD)}
-                className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-left text-sm transition-shadow hover:shadow-card"
-              >
-                <span className="font-medium text-ink">{account.label}</span>
-                <span className="mt-0.5 block text-ink-muted">{account.email}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="border-t border-line pt-6">
-        <h2 className="text-sm font-semibold text-ink">Verifier (no sign-in)</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Landlords and employers open a share link — no account required.
-        </p>
-        <Link href={VERIFIER_DEMO_URL} className="mt-3 inline-block text-sm font-medium text-accent hover:text-accent-hover">
-          Open sample verification packet →
-        </Link>
-      </section>
-    </div>
+      <FormField
+        label="Password"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        hint="At least 8 characters. Encrypts your private key."
+        required
+      />
+      <FormField
+        label="Confirm password"
+        type="password"
+        autoComplete="new-password"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        required
+      />
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <Button type="submit" disabled={pending} className="w-full">
+        <Plus className="size-4" aria-hidden />
+        {pending ? "Creating…" : "Create account"}
+      </Button>
+    </form>
   );
 }
 
-export function AuthHeaderControls() {
-  const { user, profile, loading, signOutUser } = useAuth();
+function UnlockForm({
+  onDone,
+  unlock,
+  accounts,
+}: {
+  onDone: () => void;
+  unlock: (fingerprint: string, password: string) => Promise<void>;
+  accounts: { fingerprint: string; label: string }[];
+}) {
+  const [fingerprint, setFingerprint] = useState(accounts[0]?.fingerprint ?? "");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  if (loading) return null;
-
-  if (!user) {
-    return (
-      <Link
-        href="/sign-in"
-        className="rounded-md px-3 py-1.5 text-sm font-medium text-accent hover:bg-surface-sunken"
-      >
-        Sign in
-      </Link>
-    );
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await unlock(fingerprint, password);
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not unlock account.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="hidden text-xs text-ink-muted sm:inline">
-        {profile?.role ?? "signed in"}
-      </span>
-      <button
-        type="button"
-        onClick={() => signOutUser()}
-        className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
-      >
-        Sign out
-      </button>
-    </div>
+    <form className="space-y-4" onSubmit={submit}>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-ink">Account</legend>
+        {accounts.map((a) => (
+          <label
+            key={a.fingerprint}
+            className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm has-[:checked]:border-accent"
+          >
+            <input
+              type="radio"
+              name="account"
+              value={a.fingerprint}
+              checked={fingerprint === a.fingerprint}
+              onChange={() => setFingerprint(a.fingerprint)}
+              className="accent-accent"
+            />
+            <span className="min-w-0">
+              <span className="block truncate font-medium text-ink">{a.label}</span>
+              <span className="block font-mono text-xs text-ink-muted">
+                {shortFingerprint(a.fingerprint)}
+              </span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <FormField
+        label="Password"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <Button type="submit" disabled={pending || !fingerprint} className="w-full">
+        <KeyRound className="size-4" aria-hidden />
+        {pending ? "Unlocking…" : "Unlock account"}
+      </Button>
+    </form>
   );
 }

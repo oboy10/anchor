@@ -11,6 +11,7 @@ import { revokePacketAction, setResidentNoteAction } from "@/lib/local/actions";
 import { FilterChips } from "./filter-chips";
 import { MetricCard } from "./metric-card";
 import { PacketBuilder } from "./packet-builder";
+import { VerifyIdentityCard } from "./verify-identity-card";
 import { SectionHeader } from "./section-header";
 import { TimelineItem } from "./timeline-item";
 import { Dialog } from "./ui/dialog";
@@ -25,12 +26,18 @@ export interface ResidentDashboardProps {
   resident: Resident;
   credentials: Credential[];
   packets: SharePacket[];
+  /** Contact attributes already vouched for by Anchor. */
+  verified?: { email?: string; phone?: string };
+  /** Show the verify-contact card (only for the signed-in owner's wallet). */
+  canVerify?: boolean;
 }
 
 export function ResidentDashboard({
   resident,
   credentials,
   packets,
+  verified = {},
+  canVerify = false,
 }: ResidentDashboardProps) {
   const [filter, setFilter] = React.useState<CredentialType | "all">("all");
   const [noteTarget, setNoteTarget] = React.useState<Credential | null>(null);
@@ -96,6 +103,10 @@ export function ResidentDashboard({
         worked with. You decide what to share, when, and with whom. Nothing here
         is a credit score or background check result.
       </InlineNotice>
+
+      {canVerify ? (
+        <VerifyIdentityCard fingerprint={resident.fingerprint} verified={verified} />
+      ) : null}
 
       <section aria-labelledby="summary-heading">
         <h2 id="summary-heading" className="sr-only">

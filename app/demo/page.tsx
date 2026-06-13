@@ -1,7 +1,5 @@
 import { AppShell } from "@/components/app-shell";
 import { SectionHeader } from "@/components/section-header";
-import { InlineNotice } from "@/components/ui/inline-notice";
-import { DEMO_AUTH_PASSWORD, VERIFIER_DEMO_URL } from "@/lib/auth/demo-accounts";
 import { cn } from "@/lib/cn";
 import Link from "next/link";
 
@@ -9,52 +7,35 @@ const roles = [
   {
     title: "Resident",
     description:
-      "View your credential timeline, add notes, and build time-limited share packets.",
-    href: "/sign-in",
-    cta: "Sign in as resident",
+      "Create your keypair identity, verify your contact details, review your credential timeline, and build time-limited share packets.",
+    href: "/sign-in?new=1",
+    cta: "Create a resident account",
   },
   {
     title: "Provider",
     description:
       "Issue signed positive credentials to a resident's ledger.",
-    href: "/sign-in",
-    cta: "Sign in as provider",
-  },
-  {
-    title: "Verifier",
-    description:
-      "See what a resident chose to share. No account required.",
-    href: VERIFIER_DEMO_URL,
-    cta: "Open sample packet",
+    href: "/provider",
+    cta: "Open provider console",
   },
   {
     title: "Admin",
     description:
       "Inspect identities and ledger integrity; export, import, or reseed your local data.",
-    href: "/sign-in",
-    cta: "Sign in as admin",
+    href: "/admin",
+    cta: "Open admin",
   },
 ];
 
 export default function DemoPage() {
   return (
-    <AppShell
-      context="Demo"
-      links={[
-        { href: "/", label: "Home" },
-      ]}
-    >
+    <AppShell context="Demo">
       <SectionHeader
         as="h1"
         serif
         title="Choose a demo flow"
-        description="Sign in for resident, provider, or admin. Verifiers use a public link only."
+        description="Identities are Ed25519 keypairs stored — password-protected — in your browser. Verifiers open a resident's share link and need no account."
       />
-
-      <InlineNotice tone="info" className="mt-6">
-        Demo password for all accounts: <strong>{DEMO_AUTH_PASSWORD}</strong> — run{" "}
-        <code className="text-xs">npm run seed</code> once to create Firebase Auth users.
-      </InlineNotice>
 
       <ul className="mt-8 grid gap-4 sm:grid-cols-2">
         {roles.map((role) => (

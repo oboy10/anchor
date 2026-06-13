@@ -12,7 +12,6 @@
     "test:anchor:workflow": "node --conditions react-server --import tsx tests/anchor-workflow.test.ts",
     "test:sms": "node --conditions react-server --import tsx --test tests/sms.test.ts",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
-    "seed": "tsx scripts/seed.ts",
     "vercel:env": "node scripts/sync-vercel-env.mjs"
   },
   "dependencies": {

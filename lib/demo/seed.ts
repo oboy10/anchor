@@ -379,21 +379,3 @@ export const seedEndorsements: Endorsement[] = [
   },
 ];
 
-export const seedPacket = {
-  token: "demo-maple-street",
-  residentSlug: "r_marcus",
-  label: "For Maple Street Apartments",
-  purpose: "housing" as const,
-  intro:
-    "Thank you for considering my application. Here is a verified record of my housing history and references.",
-  includedCredentialIds: [
-    "c_pay_year",
-    "c_good_standing",
-    "c_landlord_ref",
-    "c_caseworker",
-    "c_employer_ref",
-  ],
-  sharedNoteCredentialIds: [] as string[],
-  createdOffsetDays: -2,
-  expiresOffsetDays: 12,
-};

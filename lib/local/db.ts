@@ -27,7 +27,6 @@ import {
 import {
   seedEndorsements,
   seedIssuances,
-  seedPacket,
   seedProviders,
   seedResidents,
   DEMO_KEYS,
@@ -63,6 +62,12 @@ interface Store {
   providers: Map<Fingerprint, Provider>;
   /** Attestations keyed by resident (`to`) fingerprint, oldest first. */
   attestations: Map<Fingerprint, AttestationDoc[]>;
+  /**
+   * Identity vouches keyed by subject (`to`) fingerprint. These are signed by
+   * the Anchor verifier and carry `a.id:*` attributes (see spec.md §4). Kept
+   * separate from credential attestations so they never appear in the timeline.
+   */
+  vouches: Map<Fingerprint, Attestation[]>;
   /** Resident notes keyed by credentialId (not signed — resident-owned). */
   residentNotes: Map<string, string>;
   statusOverrides: Map<string, "active" | "corrected" | "superseded">;
@@ -77,6 +82,7 @@ export interface PersistedStore {
   residents: Resident[];
   providers: Provider[];
   attestations: AttestationDoc[];
+  vouches: Attestation[];
   residentNotes: { credentialId: string; note: string }[];
   statusOverrides: { credentialId: string; status: string }[];
   endorsements: Endorsement[];
@@ -94,6 +100,7 @@ function emptyStore(): Store {
     residents: new Map(),
     providers: new Map(),
     attestations: new Map(),
+    vouches: new Map(),
     residentNotes: new Map(),
     statusOverrides: new Map(),
     endorsements: [],
@@ -104,12 +111,15 @@ function emptyStore(): Store {
 function serialize(store: Store): PersistedStore {
   const attestations: AttestationDoc[] = [];
   for (const list of store.attestations.values()) attestations.push(...list);
+  const vouches: Attestation[] = [];
+  for (const list of store.vouches.values()) vouches.push(...list);
   return {
     v: STORE_VERSION,
     users: [...store.users.values()],
     residents: [...store.residents.values()],
     providers: [...store.providers.values()],
     attestations,
+    vouches,
     residentNotes: [...store.residentNotes.entries()].map(([credentialId, note]) => ({
       credentialId,
       note,
@@ -138,6 +148,11 @@ function deserialize(data: PersistedStore): Store {
     const list = store.attestations.get(a.to) ?? [];
     list.push(a);
     store.attestations.set(a.to, list);
+  }
+  for (const v of data.vouches ?? []) {
+    const list = store.vouches.get(v.to) ?? [];
+    list.push(v);
+    store.vouches.set(v.to, list);
   }
   for (const { credentialId, note } of data.residentNotes) {
     store.residentNotes.set(credentialId, note);
@@ -246,21 +261,6 @@ async function seed(): Promise<Store> {
   }
   store.endorsements = seedEndorsements.map((e) => ({ ...e }));
 
-  const residentFp = store.slugToFingerprint.get(seedPacket.residentSlug)!;
-  const now = Date.now();
-  const day = 24 * 60 * 60 * 1000;
-  store.packets.set(seedPacket.token, {
-    token: seedPacket.token,
-    residentFingerprint: residentFp,
-    label: seedPacket.label,
-    purpose: seedPacket.purpose,
-    intro: seedPacket.intro,
-    includedCredentialIds: [...seedPacket.includedCredentialIds],
-    sharedNoteCredentialIds: [...seedPacket.sharedNoteCredentialIds],
-    createdAt: new Date(now + seedPacket.createdOffsetDays * day).toISOString(),
-    expiresAt: new Date(now + seedPacket.expiresOffsetDays * day).toISOString(),
-  });
-
   return store;
 }
 
@@ -367,6 +367,67 @@ export async function setActiveResident(idOrSlug: string): Promise<void> {
   if (!fp) return;
   if (isBrowser()) localStorage.setItem(ACTIVE_KEY, fp);
   emit();
+}
+
+/**
+ * Register a locally-created keypair identity as a resident so it appears as a
+ * wallet. Only the public key is added to the ledger — the private key stays in
+ * the password-protected vault (see lib/local/accounts) and is never persisted
+ * here. Idempotent: re-registering an existing fingerprint only updates the name.
+ */
+export async function registerLocalIdentity(
+  user: Pick<User, "fingerprint" | "publicKey">,
+  displayName: string,
+): Promise<Resident> {
+  const store = await load();
+  store.users.set(user.fingerprint, {
+    fingerprint: user.fingerprint,
+    publicKey: user.publicKey,
+  });
+  const existing = store.residents.get(user.fingerprint);
+  const slug = existing?.slug ?? `r_${user.fingerprint.slice(0, 8)}`;
+  const resident: Resident = {
+    fingerprint: user.fingerprint,
+    slug,
+    displayName: displayName.trim() || existing?.displayName || "You",
+    recordSince: existing?.recordSince ?? new Date().toISOString(),
+    preferredIntro: existing?.preferredIntro,
+    pronouns: existing?.pronouns,
+    city: existing?.city,
+  };
+  store.residents.set(user.fingerprint, resident);
+  store.slugToFingerprint.set(slug, user.fingerprint);
+  await commit(store);
+  return resident;
+}
+
+/**
+ * Store an identity vouch (a signed `a.id:*` attestation from the Anchor
+ * verifier). The verifier's public key is recorded so the signature can be
+ * checked locally. De-duplicated by signature.
+ */
+export async function addVouch(
+  residentFingerprint: Fingerprint,
+  attestation: Attestation,
+  verifier: { fingerprint: Fingerprint; publicKey: string },
+): Promise<void> {
+  const store = await load();
+  store.users.set(verifier.fingerprint, {
+    fingerprint: verifier.fingerprint,
+    publicKey: verifier.publicKey,
+  });
+  const list = store.vouches.get(residentFingerprint) ?? [];
+  if (!list.some((v) => v.signature === attestation.signature)) {
+    list.push(attestation);
+  }
+  store.vouches.set(residentFingerprint, list);
+  await commit(store);
+}
+
+export async function getVouches(idOrSlug: string): Promise<Attestation[]> {
+  const fp = await resolveFingerprint(idOrSlug);
+  if (!fp) return [];
+  return [...((await load()).vouches.get(fp) ?? [])];
 }
 
 export async function listProviders(): Promise<Provider[]> {

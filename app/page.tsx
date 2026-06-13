@@ -32,12 +32,12 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/wallet" className={buttonVariants("primary", "md")}>
-            View sample wallet
+          <Link href="/sign-in?new=1" className={buttonVariants("primary", "md")}>
+            Create your account
             <ArrowRight className="size-4" aria-hidden />
           </Link>
-          <Link href="/verify?token=demo-maple-street" className={buttonVariants("secondary", "md")}>
-            See a shared packet
+          <Link href="/wallet" className={buttonVariants("secondary", "md")}>
+            View sample wallet
           </Link>
         </div>
 
