@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:anchor": "node --import tsx --test tests/anchor-protocol.test.ts",
+    "test:anchor": "npm run test:anchor:protocol && npm run test:anchor:workflow",
+    "test:anchor:protocol": "node --import tsx --test tests/anchor-protocol.test.ts",
+    "test:anchor:workflow": "tsx tests/anchor-workflow.test.ts",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
     "seed": "tsx scripts/seed.ts",
     "vercel:env": "node scripts/sync-vercel-env.mjs"
