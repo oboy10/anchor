@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Resend } from "resend";
+import sgMail from "@sendgrid/mail";
 
 export interface SendSharePacketEmailInput {
   to: string;
@@ -32,6 +32,14 @@ export function getAppBaseUrl(): string {
   if (vercel) return `https://${vercel.replace(/\/$/, "")}`;
 
   return "http://localhost:3000";
+}
+
+function parseFromAddress(raw: string): { email: string; name?: string } {
+  const match = raw.match(/^(.+?)\s*<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim(), email: match[2].trim() };
+  }
+  return { email: raw.trim() };
 }
 
 function sharePacketHtml(input: SendSharePacketEmailInput): string {
@@ -105,28 +113,49 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function sendGridErrorMessage(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "response" in error &&
+    error.response &&
+    typeof error.response === "object" &&
+    "body" in error.response
+  ) {
+    const body = error.response.body as { errors?: { message: string }[] };
+    const detail = body.errors?.map((e) => e.message).join("; ");
+    if (detail) return detail;
+  }
+  if (error instanceof Error) return error.message;
+  return "Failed to send email.";
+}
+
 export async function sendSharePacketEmail(
   input: SendSharePacketEmailInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const apiKey = process.env.SENDGRID_API_KEY?.trim();
   if (!apiKey) {
-    return { ok: false, error: "Email is not configured (missing RESEND_API_KEY)." };
+    return {
+      ok: false,
+      error: "Email is not configured (missing SENDGRID_API_KEY).",
+    };
   }
 
-  const from =
-    process.env.RESEND_FROM?.trim() || "Anchor <onboarding@resend.dev>";
+  const fromRaw =
+    process.env.SENDGRID_FROM?.trim() || "Anchor <okhaunte2@gmail.com>";
+  const from = parseFromAddress(fromRaw);
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from,
-    to: input.to.trim(),
-    subject: `${input.senderName} sent you a record on Anchor`,
-    html: sharePacketHtml(input),
-  });
+  sgMail.setApiKey(apiKey);
 
-  if (error) {
-    return { ok: false, error: error.message || "Failed to send email." };
+  try {
+    await sgMail.send({
+      to: input.to.trim(),
+      from,
+      subject: `${input.senderName} sent you a record on Anchor`,
+      html: sharePacketHtml(input),
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: sendGridErrorMessage(error) };
   }
-
-  return { ok: true };
 }
