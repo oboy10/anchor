@@ -1,6 +1,5 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
 import { Brand } from "@/components/brand";
 import { CredentialCard } from "@/components/credential-card";
@@ -26,25 +25,21 @@ function packetStateOf(packet: ResolvedShare["payload"]["packet"]): State {
   return "active";
 }
 
-export default function VerifyPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
-  const { token } = use(params);
-
+export default function VerifyPage() {
   const query = useLocalQuery(async (): Promise<ResolvedShare | null> => {
+    if (typeof window === "undefined") return null;
     // Prefer the self-contained payload in the URL fragment (works on any
-    // device). Fall back to a locally stored packet for this token (the
+    // device). Fall back to `?token=` for a locally stored packet (the
     // resident's own browser / the seeded demo link).
-    const hash =
-      typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    const hash = window.location.hash.replace(/^#/, "");
     if (hash) {
       return resolveSharePayload(decodeSharePayload(hash));
     }
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (!token) return null;
     const payload = await buildSharePayload(token);
     return payload ? resolveSharePayload(payload) : null;
-  }, [token]);
+  }, []);
 
   return (
     <div className="min-h-full bg-canvas">

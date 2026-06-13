@@ -69,7 +69,7 @@ export default function AdminPage() {
           </li>
           <li>
             <Link
-              href={`/verify/${seedPacket.token}`}
+              href={`/verify?token=${seedPacket.token}`}
               className="text-accent hover:text-accent-hover"
             >
               Sample verification packet

@@ -1,7 +1,7 @@
 /** Demo Firebase Auth accounts — created by `npm run seed`. */
 export const DEMO_AUTH_PASSWORD = "Anchor1!";
 
-export const VERIFIER_DEMO_URL = "/verify/demo-maple-street";
+export const VERIFIER_DEMO_URL = "/verify?token=demo-maple-street";
 
 export type DemoRole = "resident" | "provider" | "admin";
 

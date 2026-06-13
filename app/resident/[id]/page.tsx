@@ -29,7 +29,7 @@ export default function ResidentPage({
       links={[
         { href: "/demo", label: "Demo" },
         { href: "/provider", label: "Provider" },
-        { href: `/verify/demo-maple-street`, label: "Sample packet" },
+        { href: `/verify?token=demo-maple-street`, label: "Sample packet" },
       ]}
     >
       <LocalDataGate

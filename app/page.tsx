@@ -36,7 +36,7 @@ export default function LandingPage() {
             View sample wallet
             <ArrowRight className="size-4" aria-hidden />
           </Link>
-          <Link href="/verify/demo-maple-street" className={buttonVariants("secondary", "md")}>
+          <Link href="/verify?token=demo-maple-street" className={buttonVariants("secondary", "md")}>
             See a shared packet
           </Link>
         </div>

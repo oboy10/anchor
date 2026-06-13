@@ -1,7 +1,7 @@
 /**
  * Self-contained share links.
  *
- * A share packet is encoded entirely into the URL fragment (`/verify/<token>#<payload>`).
+ * A share packet is encoded entirely into the URL fragment (`/verify#<payload>`).
  * The fragment carries the selected signed attestations, the issuer public keys,
  * and the resident's display info — everything a verifier needs to check
  * signatures fully client-side, with no server round-trip and nothing stored
@@ -140,5 +140,5 @@ export async function resolveSharePayload(payload: SharePayload): Promise<Resolv
 export async function buildShareUrl(token: string, origin: string): Promise<string | undefined> {
   const payload = await buildSharePayload(token);
   if (!payload) return undefined;
-  return `${origin}/verify/${token}#${encodeSharePayload(payload)}`;
+  return `${origin}/verify#${encodeSharePayload(payload)}`;
 }
