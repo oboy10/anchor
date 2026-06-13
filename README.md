@@ -101,7 +101,7 @@ npm run vercel:env
 vercel --prod
 ```
 
-3. Redeploy after adding env vars — server actions need them at runtime.
+3. Redeploy after adding env vars — server actions need them at runtime. Pushing to `main` also triggers a Vercel production deploy.
 
 Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY`, share packets still work but emails are not sent.
 
