@@ -150,28 +150,7 @@ export interface PresentationVerifyResponse {
 export interface PublicAnchorContext {
   issuers: IssuerDirectoryEntry[];
   identities: IssuerDirectoryEntry[];
-  organizationRelationships: {
-    sourceFingerprint: string;
-    targetFingerprint: string;
-    relationship: string;
-  }[];
   cachedChainHeads: { signerFingerprint: string; messageFingerprint: string }[];
-  demoOutcomes: {
-    id: string;
-    relatedFingerprint: string;
-    kind: string;
-    result: string;
-    effectiveAt: string;
-  }[];
-}
-
-export interface DemoSeedDescriptor {
-  subjectFingerprint: string;
-  verifierFingerprint: string;
-  issuerFingerprints: string[];
-  requestIds: string[];
-  issuedMessageFingerprints: string[];
-  presentationBundle: AnchorPresentationBundle;
 }
 
 export interface ProtocolValidationResult {

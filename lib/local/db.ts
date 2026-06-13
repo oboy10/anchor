@@ -10,40 +10,33 @@
  * the browser, so the whole ledger is self-contained and portable.
  */
 import {
-  bytesToBase64Url,
-  bytesToHex,
-  randomBytes,
-} from "@/lib/crypto/bytes";
-import {
-  credentialsFromAttestations,
-  credentialFromAttestation,
-  toVerificationResult,
+    credentialFromAttestation,
+    credentialsFromAttestations,
+    toVerificationResult,
 } from "@/lib/attestation/credential";
 import {
-  buildCredentialProperties,
-  signAttestation,
-  verifyAttestations,
+    buildCredentialProperties,
+    signAttestation,
+    verifyAttestations,
 } from "@/lib/crypto/attestation";
 import {
-  seedEndorsements,
-  seedIssuances,
-  seedProviders,
-  seedResidents,
-  DEMO_KEYS,
-} from "@/lib/demo/seed";
+    bytesToBase64Url,
+    bytesToHex,
+    randomBytes,
+} from "@/lib/crypto/bytes";
 import type {
-  Attestation,
-  CorrectionEntry,
-  Credential,
-  CredentialEvidence,
-  CredentialType,
-  Endorsement,
-  Fingerprint,
-  Provider,
-  Resident,
-  SharePacket,
-  User,
-  VerificationResult,
+    Attestation,
+    CorrectionEntry,
+    Credential,
+    CredentialEvidence,
+    CredentialType,
+    Endorsement,
+    Fingerprint,
+    Provider,
+    Resident,
+    SharePacket,
+    User,
+    VerificationResult,
 } from "@/types";
 
 export const STORAGE_KEY = "anchor.store.v1";
@@ -169,7 +162,7 @@ function deserialize(data: PersistedStore): Store {
 }
 
 // ---------------------------------------------------------------------------
-// Seeding (deterministic demo data, signed client-side)
+// Attestation writer (signs client-side via WebCrypto)
 // ---------------------------------------------------------------------------
 
 async function appendAttestation(
@@ -223,47 +216,6 @@ async function appendAttestation(
   return record;
 }
 
-async function seed(): Promise<Store> {
-  const store = emptyStore();
-
-  for (const key of Object.keys(DEMO_KEYS) as (keyof typeof DEMO_KEYS)[]) {
-    const m = DEMO_KEYS[key];
-    store.users.set(m.fingerprint, {
-      fingerprint: m.fingerprint,
-      publicKey: m.publicKey,
-      privateKey: m.privateKey,
-    });
-  }
-  for (const r of seedResidents) {
-    store.residents.set(r.fingerprint, { ...r });
-    store.slugToFingerprint.set(r.slug, r.fingerprint);
-  }
-  for (const p of seedProviders) {
-    store.providers.set(p.fingerprint, { ...p });
-    store.slugToFingerprint.set(p.slug, p.fingerprint);
-  }
-  for (const issuance of seedIssuances) {
-    const residentFp = store.slugToFingerprint.get(issuance.residentSlug)!;
-    const issuerFp = store.slugToFingerprint.get(issuance.issuerSlug)!;
-    await appendAttestation(store, {
-      id: issuance.id,
-      residentFingerprint: residentFp,
-      issuerFingerprint: issuerFp,
-      credentialType: issuance.credentialType,
-      issueDate: issuance.issueDate,
-      title: issuance.title,
-      summary: issuance.summary,
-      evidence: issuance.evidence,
-    });
-    if (issuance.residentNote) {
-      store.residentNotes.set(issuance.id, issuance.residentNote);
-    }
-  }
-  store.endorsements = seedEndorsements.map((e) => ({ ...e }));
-
-  return store;
-}
-
 // ---------------------------------------------------------------------------
 // Load / persist / subscribe
 // ---------------------------------------------------------------------------
@@ -295,11 +247,11 @@ async function load(): Promise<Store> {
       try {
         store = deserialize(JSON.parse(raw) as PersistedStore);
       } catch {
-        store = await seed();
+        store = emptyStore();
         persist(store);
       }
     } else {
-      store = await seed();
+      store = emptyStore();
       persist(store);
     }
     cache = store;
@@ -641,11 +593,12 @@ export async function revokePacket(token: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Portability: reseed / export / import
+// Portability: reset / export / import
 // ---------------------------------------------------------------------------
 
-export async function reseed(): Promise<void> {
-  const store = await seed();
+/** Wipe the local store back to empty. */
+export async function resetData(): Promise<void> {
+  const store = emptyStore();
   cache = store;
   loadPromise = Promise.resolve(store);
   await commit(store);

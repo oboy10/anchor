@@ -10,7 +10,7 @@ import {
   createPacket,
   getResident,
   issueCredential,
-  reseed,
+  resetData,
   revokePacket,
   setResidentNote,
 } from "./db";
@@ -199,7 +199,7 @@ export async function setResidentNoteAction(
   return { ok: true as const };
 }
 
-export async function reseedAction() {
-  await reseed();
+export async function resetDataAction() {
+  await resetData();
   return { ok: true as const };
 }

@@ -55,7 +55,7 @@ export default function WalletPage() {
         loading={query.loading}
         missing={!query.data}
         missingTitle="No wallet yet"
-        missingBody="Create an account to generate your identity keypair, or reseed demo data from the admin page."
+        missingBody="Create an account to generate your identity keypair."
       >
         {query.data ? (
           <div className="space-y-6">

@@ -54,8 +54,9 @@ export default function AdminPage() {
 
       <InlineNotice tone="info" className="mt-6" title="Data backend: local-first">
         All data lives in this browser&apos;s storage as portable JSON. Nothing is
-        stored on a server except a hash list of registered emails. Use the
-        controls above to export, import, or reseed your local data.
+        stored on a server except opaque hash lists of registered emails and
+        verified phone/email contacts. Use the controls above to export, import,
+        or reset your local data.
       </InlineNotice>
 
       <section className="mt-8 space-y-4">

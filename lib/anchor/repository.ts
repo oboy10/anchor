@@ -9,9 +9,7 @@ interface AnchorStore {
   identities: Map<string, IssuerDirectoryEntry>;
   requests: Map<string, AttestationRequestView>;
   issuedMessages: Map<string, IssuedMessageView>;
-  organizationRelationships: PublicAnchorContext["organizationRelationships"];
   cachedChainHeads: PublicAnchorContext["cachedChainHeads"];
-  demoOutcomes: PublicAnchorContext["demoOutcomes"];
 }
 
 const GLOBAL_KEY = "__anchor_workflow_store__";
@@ -22,9 +20,7 @@ function emptyStore(): AnchorStore {
     identities: new Map(),
     requests: new Map(),
     issuedMessages: new Map(),
-    organizationRelationships: [],
     cachedChainHeads: [],
-    demoOutcomes: [],
   };
 }
 
@@ -122,23 +118,12 @@ export function listIssuedMessages(): IssuedMessageView[] {
   );
 }
 
-export function seedAnchorContext(input: {
-  organizationRelationships?: PublicAnchorContext["organizationRelationships"];
-  demoOutcomes?: PublicAnchorContext["demoOutcomes"];
-}): void {
-  const s = store();
-  s.organizationRelationships = input.organizationRelationships ?? [];
-  s.demoOutcomes = input.demoOutcomes ?? [];
-}
-
 export function getPublicAnchorContext(): PublicAnchorContext {
   const s = store();
   const identities = listIdentities();
   return {
     issuers: identities.filter((identity) => identity.entityType !== "person"),
     identities,
-    organizationRelationships: [...s.organizationRelationships],
     cachedChainHeads: [...s.cachedChainHeads],
-    demoOutcomes: [...s.demoOutcomes],
   };
 }

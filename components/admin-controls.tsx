@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { exportData, importData } from "@/lib/local/db";
-import { reseedAction } from "@/lib/local/actions";
+import { resetDataAction } from "@/lib/local/actions";
 import { Button } from "@/components/ui/button";
 
 export function AdminControls() {
@@ -61,11 +61,12 @@ export function AdminControls() {
         variant="secondary"
         disabled={busy}
         onClick={async () => {
-          await reseedAction();
+          if (!confirm("Erase all local data? This cannot be undone.")) return;
+          await resetDataAction();
           window.location.reload();
         }}
       >
-        Reseed demo data
+        Reset data
       </Button>
     </div>
   );

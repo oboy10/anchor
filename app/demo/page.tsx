@@ -21,7 +21,7 @@ const roles = [
   {
     title: "Admin",
     description:
-      "Inspect identities and ledger integrity; export, import, or reseed your local data.",
+      "Inspect identities and ledger integrity; export, import, or reset your local data.",
     href: "/admin",
     cta: "Open admin",
   },

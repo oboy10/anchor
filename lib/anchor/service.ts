@@ -8,20 +8,10 @@ import {
   listAttestationRequests,
   listIdentities,
   listIssuedMessages,
-  resetAnchorRepository,
   saveIssuedMessage,
-  seedAnchorContext,
   updateAttestationRequest,
   upsertIdentity,
 } from "./repository";
-import {
-  anchorDemoContext,
-  anchorDemoIdentities,
-  anchorDemoIssuanceIntents,
-  anchorDemoRegistration,
-  anchorDemoRequests,
-  signAnchorDemoIntent,
-} from "./demo";
 import type {
   AnchorIdentity,
   AnchorPayloadEntry,
@@ -29,7 +19,6 @@ import type {
   AnchorProtocolAdapter,
   AttestationRequestCreate,
   AttestationRequestView,
-  DemoSeedDescriptor,
   IdentityRegistrationRequest,
   IdentityRegistrationResponse,
   IssuanceIntent,
@@ -292,69 +281,4 @@ export async function verifyAnchorPresentation(
 
 export function getAnchorPublicContext(): PublicAnchorContext {
   return getPublicAnchorContext();
-}
-
-export async function seedAnchorDemo(
-  adapter: AnchorProtocolAdapter = anchorProtocolAdapter,
-): Promise<DemoSeedDescriptor> {
-  resetAnchorRepository();
-  seedAnchorContext(anchorDemoContext);
-
-  for (const registration of anchorDemoRegistration) {
-    await registerAnchorIdentity(registration, adapter);
-  }
-
-  const requests = anchorDemoRequests.map((request) =>
-    createAnchorAttestationRequest(request),
-  );
-
-  const issued: IssuedMessageView[] = [];
-  for (const intent of anchorDemoIssuanceIntents) {
-    const matchingRequest = requests.find(
-      (request) =>
-        request.subjectFingerprint === intent.subjectFingerprint &&
-        request.issuerFingerprint === intent.issuerFingerprint &&
-        request.requestedType === intent.type,
-    );
-    issued.push(
-      await issueAnchorMessage(
-        {
-          ...intent,
-          requestId: matchingRequest?.id,
-          signedMessage: signAnchorDemoIntent(intent, issued.at(-1)?.signedMessage),
-        },
-        adapter,
-      ),
-    );
-  }
-
-  const messages = issued
-    .map((message) => message.signedMessage)
-    .filter((message): message is NonNullable<typeof message> => !!message);
-  const { bundle } = prepareAnchorPresentation({
-    purpose: "housing_application",
-    subjectFingerprint: anchorDemoIdentities.subject.fingerprint,
-    messages,
-    relatedKeys: [
-      anchorDemoIdentities.formerLandlord,
-      anchorDemoIdentities.nonprofit,
-      anchorDemoIdentities.caseworker,
-      anchorDemoIdentities.housingProgram,
-    ],
-    note: "Demo bundle: strong Anchor evidence despite limited traditional paperwork.",
-  });
-
-  return {
-    subjectFingerprint: anchorDemoIdentities.subject.fingerprint,
-    verifierFingerprint: anchorDemoIdentities.verifier.fingerprint,
-    issuerFingerprints: [
-      anchorDemoIdentities.formerLandlord.fingerprint,
-      anchorDemoIdentities.nonprofit.fingerprint,
-      anchorDemoIdentities.caseworker.fingerprint,
-      anchorDemoIdentities.housingProgram.fingerprint,
-    ],
-    requestIds: requests.map((request) => request.id),
-    issuedMessageFingerprints: issued.map((message) => message.messageFingerprint),
-    presentationBundle: bundle,
-  };
 }
