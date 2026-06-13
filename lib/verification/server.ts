@@ -3,23 +3,31 @@ import "server-only";
 /**
  * Server-side state for contact verification.
  *
- * Two pieces of data, both stored only as SHA-256 hashes so no plaintext
+ * Pending codes are stored only as SHA-256 hashes, short-lived, so no plaintext
  * contact ever lands in Firestore:
- *  - pending codes: hash(channel:value) → { codeHash, expiresAt }, short-lived
- *  - registered identities: hash(channel:value) → registeredAt, to prevent the
- *    same email/phone being verified onto two accounts (double registration)
+ *  - pending codes: hash(channel:value) → { codeHash, expiresAt }
+ *
+ * Registered identities are never recorded in Firestore. Uniqueness (one
+ * phone/email → one account, no double registration) is enforced through a
+ * hashtable of SHA-256 identity hashes, persisted to a local JSON file on disk
+ * so the guarantee survives restarts. The file holds only opaque hashes — no
+ * plaintext contact and no identity for who registered.
  *
  * When Firebase Admin is unconfigured (local dev), an in-memory fallback keeps
- * the flow working within a single server process.
+ * the pending-code flow working within a single server process.
  */
 import { createHash, randomInt } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { getAdminFirestore, isFirebaseAdminConfigured } from "@/lib/firebase/admin";
 
 export type Channel = "email" | "phone";
 
 const PENDING_COLLECTION = "pendingVerifications";
-const REGISTERED_COLLECTION = "registeredIdentities";
 const CODE_TTL_MS = 10 * 60 * 1000;
+const REGISTERED_HASHES_PATH =
+  process.env.REGISTERED_HASHES_PATH ??
+  join(process.cwd(), ".data", "registered-hashes.json");
 
 function identityHash(channel: Channel, value: string): string {
   return createHash("sha256")
@@ -35,18 +43,40 @@ export function generateCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
-// In-memory fallback (single process only).
+// In-memory fallback for pending codes (single process only).
 const memPending = new Map<string, { codeHash: string; expiresAt: number }>();
-const memRegistered = new Set<string>();
+
+// Hashtable guaranteeing uniqueness of registered phone/email hashes, backed by
+// a JSON file on disk so it survives restarts. Lazily loaded on first use.
+let registeredHashes: Set<string> | null = null;
+
+function loadRegisteredHashes(): Set<string> {
+  if (registeredHashes) return registeredHashes;
+  try {
+    const raw = readFileSync(REGISTERED_HASHES_PATH, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    registeredHashes = new Set(Array.isArray(parsed) ? (parsed as string[]) : []);
+  } catch {
+    // Missing or unreadable file → start empty.
+    registeredHashes = new Set<string>();
+  }
+  return registeredHashes;
+}
+
+function persistRegisteredHashes(): void {
+  mkdirSync(dirname(REGISTERED_HASHES_PATH), { recursive: true });
+  writeFileSync(
+    REGISTERED_HASHES_PATH,
+    JSON.stringify([...loadRegisteredHashes()]),
+    "utf8",
+  );
+}
 
 export async function isRegistered(
   channel: Channel,
   value: string,
 ): Promise<boolean> {
-  const h = identityHash(channel, value);
-  if (!isFirebaseAdminConfigured()) return memRegistered.has(h);
-  const doc = await getAdminFirestore().collection(REGISTERED_COLLECTION).doc(h).get();
-  return doc.exists;
+  return loadRegisteredHashes().has(identityHash(channel, value));
 }
 
 export async function createPendingCode(
@@ -92,13 +122,8 @@ export async function recordRegistered(
   channel: Channel,
   value: string,
 ): Promise<void> {
-  const h = identityHash(channel, value);
-  if (isFirebaseAdminConfigured()) {
-    await getAdminFirestore()
-      .collection(REGISTERED_COLLECTION)
-      .doc(h)
-      .set({ registeredAt: new Date().toISOString() }, { merge: true });
-  } else {
-    memRegistered.add(h);
-  }
+  // Track in the on-disk hashtable only — never written to Firestore, so the
+  // server records no identity for who has registered.
+  loadRegisteredHashes().add(identityHash(channel, value));
+  persistRegisteredHashes();
 }

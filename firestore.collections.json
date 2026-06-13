@@ -1,0 +1,12 @@
+{
+  "collections": [
+    {
+      "name": "registeredEmails",
+      "description": "SHA-256 hashes of registered emails"
+    },
+    {
+      "name": "pendingVerifications",
+      "description": "in-flight verification challenges"
+    }
+  ]
+}

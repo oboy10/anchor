@@ -12,6 +12,8 @@
     "test:anchor:workflow": "node --conditions react-server --import tsx tests/anchor-workflow.test.ts",
     "test:sms": "node --conditions react-server --import tsx --test tests/sms.test.ts",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
+    "firestore:deploy": "node scripts/deploy-firestore.mjs",
+    "vercel-build": "node scripts/deploy-firestore.mjs && next build",
     "firebase:cleanup": "node scripts/cleanup-firebase.mjs",
     "vercel:env": "node scripts/sync-vercel-env.mjs"
   },
@@ -37,6 +39,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "firebase-tools": "^15.20.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5"

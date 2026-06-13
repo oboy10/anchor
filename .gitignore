@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Claude Code worktrees / local state
 .claude/
+
+# on-disk registered-identity hashes
+/.data/
