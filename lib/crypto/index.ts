@@ -1,5 +1,5 @@
 /**
- * TrustWallet cryptographic exports.
+ * Anchor cryptographic exports.
  * Cross-platform — WebCrypto Ed25519, runs in browser and on the server.
  */
 

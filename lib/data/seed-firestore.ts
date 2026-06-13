@@ -1,5 +1,5 @@
 /**
- * Seed Firestore with demo TrustWallet data.
+ * Seed Firestore with demo Anchor data.
  * Requires Firebase Admin credentials.
  */
 import type { Firestore } from "firebase-admin/firestore";

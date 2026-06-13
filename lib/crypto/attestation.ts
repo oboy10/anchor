@@ -135,7 +135,7 @@ export async function verifyAttestations(
   return result;
 }
 
-/** Build attestation properties for a TrustWallet credential. */
+/** Build attestation properties for an Anchor credential. */
 export function buildCredentialProperties(input: {
   credentialId: string;
   credentialType: string;

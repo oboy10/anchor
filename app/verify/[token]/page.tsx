@@ -126,11 +126,11 @@ export default async function VerifyPage({
         <footer className="mt-12 border-t border-line pt-6 text-sm text-ink-faint">
           <p>
             Each credential was issued and signed by the organization named on it.
-            TrustWallet verifies ledger integrity; it does not guarantee future behavior.
+            Anchor verifies ledger integrity; it does not guarantee future behavior.
           </p>
           <p className="mt-2">
             <Link href="/" className="text-accent hover:text-accent-hover">
-              About TrustWallet
+              About Anchor
             </Link>
           </p>
         </footer>

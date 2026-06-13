@@ -92,7 +92,7 @@ export function ResidentDashboard({
       </header>
 
       <InlineNotice tone="calm" title="You stay in control">
-        TrustWallet holds verified positive credentials from organizations you
+        Anchor holds verified positive credentials from organizations you
         worked with. You decide what to share, when, and with whom. Nothing here
         is a credit score or background check result.
       </InlineNotice>

@@ -25,7 +25,7 @@ export default function LandingPage() {
           A verified record you own — not a score someone else assigns.
         </h1>
         <p className="mt-5 max-w-prose text-[17px] leading-relaxed text-ink-muted">
-          TrustWallet helps people rebuilding after homelessness carry forward
+          Anchor helps people rebuilding after homelessness carry forward
           verified proof of reliability: on-time payments, housing good standing,
           references, training, and caseworker endorsements. Shelters, landlords,
           employers, and programs issue credentials. You choose what to share.
@@ -71,7 +71,7 @@ export default function LandingPage() {
           <div>
             <h2 className="font-serif text-2xl text-ink">What this is not</h2>
             <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink-muted">
-              TrustWallet is not a credit score, a background check, or a surveillance
+              Anchor is not a credit score, a background check, or a surveillance
               tool. There are no hidden ratings. Providers cannot edit past entries.
               You can revoke a share link at any time.
             </p>

@@ -18,16 +18,16 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://trustwallet.example.com"),
+  metadataBase: new URL("https://milpitas-hacks-red.vercel.app"),
   title: {
-    default: "TrustWallet — a resident-controlled verified record",
-    template: "%s · TrustWallet",
+    default: "Anchor — a resident-controlled verified record",
+    template: "%s · Anchor",
   },
   description:
-    "TrustWallet is a resident-owned trust and reputation wallet. Shelters, landlords, employers, and caseworkers issue verified positive credentials. The resident decides what to share.",
-  applicationName: "TrustWallet",
+    "Anchor is a resident-owned trust and reputation wallet. Shelters, landlords, employers, and caseworkers issue verified positive credentials. The resident decides what to share.",
+  applicationName: "Anchor",
   openGraph: {
-    title: "TrustWallet — a resident-controlled verified record",
+    title: "Anchor — a resident-controlled verified record",
     description:
       "Verified positive credentials, controlled by the resident. Not a score.",
     type: "website",

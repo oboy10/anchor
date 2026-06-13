@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
-/** TrustWallet wordmark with a small, restrained shield mark. */
+/** Anchor wordmark with a small, restrained anchor mark. */
 export function Brand({
   className,
   href = "/",
@@ -35,7 +35,7 @@ export function Brand({
           />
         </svg>
       </span>
-      <span className="text-[17px] font-semibold tracking-tight">TrustWallet</span>
+      <span className="text-[17px] font-semibold tracking-tight">Anchor</span>
     </Link>
   );
 }

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  TrustWallet design tokens — warm-neutral, one muted accent.
+  Anchor design tokens — warm-neutral, one muted accent.
   Defined as CSS variables and exposed to Tailwind v4 via @theme.
 */
 :root {

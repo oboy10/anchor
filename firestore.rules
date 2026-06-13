@@ -1,7 +1,7 @@
 rules_version = '2';
 
 /**
- * TrustWallet Firestore rules
+ * Anchor Firestore rules
  *
  * Design:
  * - Attestations, packets, and provider profiles are written ONLY by the server (Admin SDK).

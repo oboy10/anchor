@@ -42,6 +42,7 @@ export async function clampEd25519Seed(seed: Uint8Array): Promise<Uint8Array> {
 /** Derive a deterministic demo keypair from a label (stable across reseeds). */
 export async function userFromSeed(label: string): Promise<User> {
   const privateSeed = await clampEd25519Seed(
+    // Legacy namespace — keep stable so existing demo ledger fingerprints match.
     utf8ToBytes(`trustwallet:v1:${label}`),
   );
   return userFromPrivateSeed(privateSeed);

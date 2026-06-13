@@ -56,10 +56,10 @@ interface Store {
   packets: Map<string, SharePacket>;
 }
 
-const GLOBAL_KEY = "__trustwallet_store__";
+const GLOBAL_KEY = "__anchor_store__";
 type GlobalWithStore = typeof globalThis & {
   [GLOBAL_KEY]?: Store;
-  __trustwallet_seed__?: Promise<Store>;
+  __anchor_seed__?: Promise<Store>;
 };
 
 function emptyStore(): Store {
@@ -87,15 +87,15 @@ function isValidStore(store: Store | undefined): store is Store {
 function getStore(): Promise<Store> {
   const g = globalThis as GlobalWithStore;
   if (isValidStore(g[GLOBAL_KEY])) return Promise.resolve(g[GLOBAL_KEY]);
-  if (!g.__trustwallet_seed__) {
-    g.__trustwallet_seed__ = (async () => {
+  if (!g.__anchor_seed__) {
+    g.__anchor_seed__ = (async () => {
       const store = emptyStore();
       await seed(store);
       g[GLOBAL_KEY] = store;
       return store;
     })();
   }
-  return g.__trustwallet_seed__;
+  return g.__anchor_seed__;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ async function seed(store: Store) {
 export async function reseed(): Promise<void> {
   const g = globalThis as GlobalWithStore;
   g[GLOBAL_KEY] = undefined;
-  g.__trustwallet_seed__ = undefined;
+  g.__anchor_seed__ = undefined;
   await getStore();
 }
 

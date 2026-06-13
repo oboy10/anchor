@@ -1,5 +1,5 @@
 /**
- * Core cryptographic primitives for TrustWallet.
+ * Core cryptographic primitives for Anchor.
  *
  * Identity is an Ed25519 keypair. Attestations are signed directed edges
  * between user fingerprints. No central registry is required.
@@ -70,7 +70,7 @@ export interface AttestationVerificationResult {
   brokenAt?: string;
 }
 
-/** Well-known property keys used to encode TrustWallet credentials. */
+/** Well-known property keys used to encode Anchor credentials. */
 export const PROP = {
   CREDENTIAL_ID: "credentialId",
   TYPE: "type",

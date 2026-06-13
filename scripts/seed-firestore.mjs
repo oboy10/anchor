@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Seed Firestore with TrustWallet demo data.
+ * Seed Firestore with Anchor demo data.
  * Usage: node scripts/seed-firestore.mjs
  * Requires FIREBASE_* admin env vars or GOOGLE_APPLICATION_CREDENTIALS.
  */

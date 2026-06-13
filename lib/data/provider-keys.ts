@@ -10,7 +10,8 @@ let cache: Map<Fingerprint, PrivateKeyHex> | null = null;
 
 function loadFromEnv(): Map<Fingerprint, PrivateKeyHex> {
   const map = new Map<Fingerprint, PrivateKeyHex>();
-  const raw = process.env.TRUSTWALLET_PROVIDER_KEYS;
+  const raw =
+    process.env.ANCHOR_PROVIDER_KEYS ?? process.env.TRUSTWALLET_PROVIDER_KEYS;
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Record<string, string>;
@@ -18,7 +19,7 @@ function loadFromEnv(): Map<Fingerprint, PrivateKeyHex> {
         map.set(fp, key as PrivateKeyHex);
       }
     } catch {
-      console.warn("TRUSTWALLET_PROVIDER_KEYS is not valid JSON");
+      console.warn("ANCHOR_PROVIDER_KEYS is not valid JSON");
     }
   }
   return map;

@@ -4,7 +4,7 @@ import { SectionHeader } from "@/components/section-header";
 import { InlineNotice } from "@/components/ui/inline-notice";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { VERIFIER_DEMO_URL } from "@/lib/auth/demo-accounts";
+import { VERIFIER_DEMO_URL, DEMO_AUTH_PASSWORD } from "@/lib/auth/demo-accounts";
 
 const roles = [
   {
@@ -54,7 +54,7 @@ export default function DemoPage() {
       />
 
       <InlineNotice tone="info" className="mt-6">
-        Demo password for all accounts: <strong>TrustWallet1!</strong> — run{" "}
+        Demo password for all accounts: <strong>{DEMO_AUTH_PASSWORD}</strong> — run{" "}
         <code className="text-xs">npm run seed</code> once to create Firebase Auth users.
       </InlineNotice>
 

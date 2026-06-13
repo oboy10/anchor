@@ -1,4 +1,4 @@
-# TrustWallet
+# Anchor
 
 A resident-controlled verified reputation wallet. Shelters, landlords, employers, and caseworkers issue **signed Ed25519 attestations**. Residents choose what to share via time-limited packets.
 
@@ -118,6 +118,6 @@ Without Admin credentials, the app runs on an **in-memory demo store**. Without 
 
 - **Identity:** Ed25519 keypair; fingerprint = `SHA-512(public_key)[0:8]`
 - **Record:** Signed attestation `{ from, to, properties, nonce }` + Ed25519 signature
-- Provider private keys for signing: `TRUSTWALLET_PROVIDER_KEYS` env (JSON) or demo keys in dev
+- Provider private keys for signing: `ANCHOR_PROVIDER_KEYS` env (JSON) or demo keys in dev
 
 Private keys are **never** stored in Firestore.
