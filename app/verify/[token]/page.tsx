@@ -10,7 +10,7 @@ import {
   getPacket,
   getResident,
   verifyResidentChain,
-} from "@/lib/data/store";
+} from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { summarize, packetState } from "@/lib/metrics";
 import { PACKET_PURPOSE_LABELS } from "@/types";
@@ -21,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const packet = getPacket(token);
+  const packet = await getPacket(token);
   return {
     title: packet ? packet.label : "Verification",
     robots: { index: false, follow: false },
@@ -34,19 +34,19 @@ export default async function VerifyPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const packet = getPacket(token);
+  const packet = await getPacket(token);
   if (!packet) notFound();
 
-  const resident = getResident(packet.residentFingerprint);
+  const resident = await getResident(packet.residentFingerprint);
   if (!resident) notFound();
 
   const state = packetState(packet);
-  const ledger = getLedger(packet.residentFingerprint);
+  const ledger = await getLedger(packet.residentFingerprint);
   const included = packet.includedCredentialIds
     .map((id) => ledger.find((c) => c.id === id))
     .filter((c): c is NonNullable<typeof c> => !!c);
 
-  const chainResult = verifyResidentChain(packet.residentFingerprint);
+  const chainResult = await verifyResidentChain(packet.residentFingerprint);
   const summary = summarize(included);
 
   return (

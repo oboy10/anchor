@@ -320,6 +320,7 @@ export interface IssueCredentialInput {
   title: string;
   summary: string;
   evidence: CredentialEvidence;
+  corrects?: string;
 }
 
 export function issueCredential(input: IssueCredentialInput): Credential {
@@ -338,6 +339,7 @@ export function issueCredential(input: IssueCredentialInput): Credential {
     title: input.title,
     summary: input.summary,
     evidence: input.evidence,
+    corrects: input.corrects,
   });
 
   return credentialFromAttestation(record);

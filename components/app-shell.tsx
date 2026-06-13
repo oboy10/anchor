@@ -1,12 +1,12 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 import { Header, type HeaderLink } from "./header";
+import { AuthHeaderControls } from "./sign-in-panel";
 
 export interface AppShellProps {
   children: React.ReactNode;
   links?: HeaderLink[];
   context?: string;
-  /** Constrain main content width. Default true. */
   contained?: boolean;
   className?: string;
 }
@@ -20,7 +20,7 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="flex min-h-full flex-col">
-      <Header links={links} context={context} />
+      <Header links={links} context={context} trailing={<AuthHeaderControls />} />
       <main
         className={cn(
           "flex-1",

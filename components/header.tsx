@@ -10,12 +10,12 @@ export interface HeaderLink {
 
 export interface HeaderProps {
   links?: HeaderLink[];
-  /** Small contextual label shown next to the wordmark (e.g. role). */
   context?: string;
+  trailing?: React.ReactNode;
   className?: string;
 }
 
-export function Header({ links = [], context, className }: HeaderProps) {
+export function Header({ links = [], context, trailing, className }: HeaderProps) {
   return (
     <header
       className={cn(
@@ -35,18 +35,23 @@ export function Header({ links = [], context, className }: HeaderProps) {
             </>
           ) : null}
         </div>
-        {links.length ? (
-          <nav aria-label="Primary" className="flex items-center gap-1">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
+        {links.length || trailing ? (
+          <div className="flex items-center gap-1">
+            {links.length ? (
+              <nav aria-label="Primary" className="flex items-center gap-1">
+                {links.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
+            {trailing}
+          </div>
         ) : null}
       </div>
     </header>

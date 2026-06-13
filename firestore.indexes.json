@@ -1,0 +1,45 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "attestations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "to", "order": "ASCENDING" },
+        { "fieldPath": "issueDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attestations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "from", "order": "ASCENDING" },
+        { "fieldPath": "issueDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sharePackets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "residentFingerprint", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "residentNotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fingerprint", "order": "ASCENDING" },
+        { "fieldPath": "credentialId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "endorsements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "residentFingerprint", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

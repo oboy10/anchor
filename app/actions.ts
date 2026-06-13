@@ -7,7 +7,7 @@ import {
   reseed,
   revokePacket,
   setResidentNote,
-} from "@/lib/data/store";
+} from "@/lib/data";
 import type { CredentialType, SharePacket } from "@/types";
 
 export interface IssueCredentialActionInput {
@@ -27,7 +27,7 @@ export async function issueCredentialAction(input: IssueCredentialActionInput) {
     return { ok: false as const, error: "Missing required fields." };
   }
 
-  const credential = issueCredential({
+  const credential = await issueCredential({
     residentId: input.residentId,
     issuerId: input.issuerId,
     credentialType: input.credentialType,
@@ -65,7 +65,7 @@ export async function createPacketAction(input: CreatePacketActionInput) {
     return { ok: false as const, error: "Choose at least one credential to share." };
   }
 
-  const packet = createPacket({
+  const packet = await createPacket({
     residentId: input.residentId,
     label: input.label.trim(),
     purpose: input.purpose,
@@ -80,7 +80,7 @@ export async function createPacketAction(input: CreatePacketActionInput) {
 }
 
 export async function revokePacketAction(residentId: string, token: string) {
-  revokePacket(token);
+  await revokePacket(token);
   revalidatePath(`/resident/${residentId}`);
   revalidatePath(`/verify/${token}`);
   return { ok: true as const };
@@ -91,13 +91,13 @@ export async function setResidentNoteAction(
   credentialId: string,
   note: string,
 ) {
-  setResidentNote(residentId, credentialId, note);
+  await setResidentNote(residentId, credentialId, note);
   revalidatePath(`/resident/${residentId}`);
   return { ok: true as const };
 }
 
 export async function reseedAction() {
-  reseed();
+  await reseed();
   revalidatePath("/admin");
   revalidatePath("/resident/r_marcus");
   revalidatePath("/provider");

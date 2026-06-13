@@ -5,7 +5,7 @@ import {
   getLedger,
   getResident,
   listPacketsForResident,
-} from "@/lib/data/store";
+} from "@/lib/data";
 
 export async function generateMetadata({
   params,
@@ -13,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const resident = getResident(id);
+  const resident = await getResident(id);
   return {
     title: resident
       ? `${resident.displayName}'s wallet`
@@ -27,11 +27,11 @@ export default async function ResidentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const resident = getResident(id);
+  const resident = await getResident(id);
   if (!resident) notFound();
 
-  const credentials = getLedger(id);
-  const packets = listPacketsForResident(id);
+  const credentials = await getLedger(id);
+  const packets = await listPacketsForResident(id);
 
   return (
     <AppShell

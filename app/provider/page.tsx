@@ -1,14 +1,14 @@
 import { AppShell } from "@/components/app-shell";
 import { ProviderConsole } from "@/components/provider-console";
-import { listProviders, listResidents } from "@/lib/data/store";
+import { listProviders, listResidents } from "@/lib/data";
 
 export const metadata = {
   title: "Provider console",
 };
 
-export default function ProviderPage() {
-  const providers = listProviders();
-  const residents = listResidents();
+export default async function ProviderPage() {
+  const providers = await listProviders();
+  const residents = await listResidents();
 
   return (
     <AppShell

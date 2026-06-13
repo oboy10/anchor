@@ -3,14 +3,16 @@ import { AppShell } from "@/components/app-shell";
 import { AdminControls } from "@/components/admin-controls";
 import { SectionHeader } from "@/components/section-header";
 import { VerificationBanner } from "@/components/verification-banner";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineNotice } from "@/components/ui/inline-notice";
 import {
   listProviders,
   listResidents,
   getLedger,
   verifyResidentChain,
   getAttestations,
-} from "@/lib/data/store";
+  getDataBackend,
+} from "@/lib/data";
+import { isFirebaseAdminConfigured } from "@/lib/firebase/admin";
 import { shortHex } from "@/lib/crypto/user";
 import { seedPacket } from "@/lib/demo/seed";
 
@@ -19,9 +21,10 @@ export const metadata = {
   robots: { index: false },
 };
 
-export default function AdminPage() {
-  const residents = listResidents();
-  const providers = listProviders();
+export default async function AdminPage() {
+  const residents = await listResidents();
+  const providers = await listProviders();
+  const backend = await getDataBackend();
 
   return (
     <AppShell
@@ -40,6 +43,21 @@ export default function AdminPage() {
         />
         <AdminControls />
       </div>
+
+      <InlineNotice tone="info" className="mt-6" title={`Data backend: ${backend}`}>
+        {backend === "firestore" ? (
+          <>Connected to Firestore ({process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}). Demo data auto-seeds on first load.</>
+        ) : isFirebaseAdminConfigured() ? (
+          <>Admin SDK configured but backend fell back to memory — check env vars.</>
+        ) : (
+          <>
+            Running in-memory demo mode. Add{" "}
+            <code className="text-xs">FIREBASE_CLIENT_EMAIL</code> and{" "}
+            <code className="text-xs">FIREBASE_PRIVATE_KEY</code> to{" "}
+            <code className="text-xs">.env.local</code> to persist to Firestore.
+          </>
+        )}
+      </InlineNotice>
 
       <section className="mt-8 space-y-4">
         <h2 className="text-lg font-semibold text-ink">Quick links</h2>
@@ -87,42 +105,44 @@ export default function AdminPage() {
 
       <section className="mt-10 space-y-6">
         <h2 className="text-lg font-semibold text-ink">Attestation verification</h2>
-        {residents.map((r) => {
-          const ledger = getLedger(r.slug);
-          const attestations = getAttestations(r.slug);
-          const result = verifyResidentChain(r.slug);
-          return (
-            <div key={r.fingerprint} className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-medium text-ink">{r.displayName}</h3>
-                <code className="text-xs text-ink-faint">{r.fingerprint}</code>
-                <span className="text-sm text-ink-muted">
-                  {ledger.length} attestations
-                </span>
-              </div>
-              <VerificationBanner result={result} />
-              <details className="rounded-lg border border-line bg-surface text-sm">
-                <summary className="cursor-pointer px-4 py-3 font-medium text-ink">
-                  Inspect attestations
-                </summary>
-                <ul className="divide-y divide-line border-t border-line">
-                  {attestations.map((a, i) => {
-                    const cred = ledger[i];
-                    const entry = result.entries[i];
-                    return (
-                      <li key={a.nonce} className="px-4 py-2 font-mono text-xs text-ink-muted">
-                        {cred?.title ?? a.nonce.slice(0, 8)} · from{" "}
-                        {shortHex(a.from)} → to {shortHex(a.to)} · sig{" "}
-                        {entry?.signatureValid ? "✓" : "✗"} · nonce{" "}
-                        {shortHex(a.nonce)}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </details>
+        {(await Promise.all(
+          residents.map(async (r) => {
+            const ledger = await getLedger(r.slug);
+            const attestations = await getAttestations(r.slug);
+            const result = await verifyResidentChain(r.slug);
+            return { r, ledger, attestations, result };
+          }),
+        )).map(({ r, ledger, attestations, result }) => (
+          <div key={r.fingerprint} className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-medium text-ink">{r.displayName}</h3>
+              <code className="text-xs text-ink-faint">{r.fingerprint}</code>
+              <span className="text-sm text-ink-muted">
+                {ledger.length} attestations
+              </span>
             </div>
-          );
-        })}
+            <VerificationBanner result={result} />
+            <details className="rounded-lg border border-line bg-surface text-sm">
+              <summary className="cursor-pointer px-4 py-3 font-medium text-ink">
+                Inspect attestations
+              </summary>
+              <ul className="divide-y divide-line border-t border-line">
+                {attestations.map((a, i) => {
+                  const cred = ledger[i];
+                  const entry = result.entries[i];
+                  return (
+                    <li key={a.nonce} className="px-4 py-2 font-mono text-xs text-ink-muted">
+                      {cred?.title ?? a.nonce.slice(0, 8)} · from{" "}
+                      {shortHex(a.from)} → to {shortHex(a.to)} · sig{" "}
+                      {entry?.signatureValid ? "✓" : "✗"} · nonce{" "}
+                      {shortHex(a.nonce)}
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          </div>
+        ))}
       </section>
     </AppShell>
   );
