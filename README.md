@@ -81,9 +81,29 @@ Rules live in `firestore.rules`. See that file for the security model.
 
 ## Deploy on Vercel
 
+Production: [milpitas-hacks-red.vercel.app](https://milpitas-hacks-red.vercel.app)
+
 1. Import repo from GitHub
-2. Add all `NEXT_PUBLIC_FIREBASE_*` and `FIREBASE_*` env vars
-3. Deploy — Firestore backend activates automatically when Admin vars are set
+2. Add environment variables (Project → Settings → Environment Variables):
+
+| Variable | Notes |
+|---|---|
+| All `NEXT_PUBLIC_FIREBASE_*` | From Firebase Console |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Service account — enables Firestore |
+| `RESEND_API_KEY` | From [Resend](https://resend.com/api-keys) — share packet emails |
+| `RESEND_FROM` | e.g. `Anchor <onboarding@resend.dev>` (sandbox) |
+| `NEXT_PUBLIC_APP_URL` | `https://milpitas-hacks-red.vercel.app` |
+
+Or sync from your local `.env.local` after `vercel login` and `vercel link`:
+
+```bash
+npm run vercel:env
+vercel --prod
+```
+
+3. Redeploy after adding env vars — server actions need them at runtime.
+
+Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY`, share packets still work but emails are not sent.
 
 ## Crypto model
 

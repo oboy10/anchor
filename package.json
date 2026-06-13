@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "vercel:env": "node scripts/sync-vercel-env.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

@@ -1,0 +1,5 @@
+{
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://milpitas-hacks-red.vercel.app"
+  }
+}
