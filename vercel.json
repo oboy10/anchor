@@ -1,5 +1,11 @@
 {
   "env": {
-    "NEXT_PUBLIC_APP_URL": "https://milpitas-hacks-red.vercel.app"
+    "NEXT_PUBLIC_APP_URL": "https://milpitas-hacks-red.vercel.app",
+    "NEXT_PUBLIC_FIREBASE_API_KEY": "AIzaSyDeNFK2fskWsLPoNkkxEk36GXsVBZznm4c",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN": "anchor-8bdff.firebaseapp.com",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID": "anchor-8bdff",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET": "anchor-8bdff.firebasestorage.app",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "994582091613",
+    "NEXT_PUBLIC_FIREBASE_APP_ID": "1:994582091613:web:99777ea476831400c83ab4"
   }
 }

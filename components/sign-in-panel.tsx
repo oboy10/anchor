@@ -22,7 +22,7 @@ export function SignInPanel() {
   if (!isFirebaseClientConfigured()) {
     return (
       <InlineNotice tone="warning" title="Firebase not configured">
-        Add NEXT_PUBLIC_FIREBASE_* variables to .env.local and restart the dev server.
+        Add NEXT_PUBLIC_FIREBASE_* variables to your environment and redeploy.
       </InlineNotice>
     );
   }
