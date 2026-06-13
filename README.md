@@ -90,8 +90,8 @@ Production: [milpitas-hacks-red.vercel.app](https://milpitas-hacks-red.vercel.ap
 |---|---|
 | All `NEXT_PUBLIC_FIREBASE_*` | From Firebase Console |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Service account — enables Firestore |
-| `SENDGRID_API_KEY` | From [SendGrid](https://app.sendgrid.com/settings/api_keys) — share packet emails |
-| `SENDGRID_FROM` | `Anchor <okhaunte2@gmail.com>` — must match a [verified single sender](https://app.sendgrid.com/settings/sender_auth/senders) |
+| `RESEND_API_KEY` | From [Resend](https://resend.com/api-keys) — share packet emails |
+| `RESEND_FROM` | e.g. `Anchor <hello@yourdomain.com>` — must use a [verified domain](https://resend.com/domains) |
 | `NEXT_PUBLIC_APP_URL` | `https://milpitas-hacks-red.vercel.app` |
 
 Or sync from your local `.env.local` after `vercel login` and `vercel link`:
@@ -103,14 +103,14 @@ vercel --prod
 
 3. Redeploy after adding env vars — server actions need them at runtime.
 
-Without Admin credentials, the app runs on an **in-memory demo store**. Without `SENDGRID_API_KEY`, share packets still work but emails are not sent.
+Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY`, share packets still work but emails are not sent.
 
-### SendGrid setup (no custom domain)
+### Resend setup (custom domain)
 
-1. Sign up at [SendGrid](https://sendgrid.com)
-2. **Settings → Sender Authentication → Single Sender Verification** — verify `okhaunte2@gmail.com`
-3. **Settings → API Keys** — create a key with Mail Send permission
-4. Add `SENDGRID_API_KEY` and `SENDGRID_FROM=Anchor <okhaunte2@gmail.com>` to `.env.local` / Vercel
+1. Add your domain at [Resend → Domains](https://resend.com/domains) and add the DNS records they provide
+2. Create an API key at [Resend → API Keys](https://resend.com/api-keys)
+3. Set `RESEND_FROM=Anchor <hello@yourdomain.com>` using an address on that verified domain
+4. Add `RESEND_API_KEY`, `RESEND_FROM`, and `NEXT_PUBLIC_APP_URL` to `.env.local` / Vercel, then redeploy
 
 ## Crypto model
 
