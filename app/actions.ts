@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 import {
   createPacket,
+  getResident,
   issueCredential,
   reseed,
   revokePacket,
   setResidentNote,
 } from "@/lib/data";
+import {
+  getAppBaseUrl,
+  isValidEmail,
+  sendSharePacketEmail,
+} from "@/lib/email/share-packet";
 import type { CredentialType, SharePacket } from "@/types";
 
 export interface IssueCredentialActionInput {
@@ -55,6 +61,7 @@ export interface CreatePacketActionInput {
   sharedNoteCredentialIds: string[];
   intro?: string;
   expiresInDays: number;
+  reviewerEmail?: string;
 }
 
 export async function createPacketAction(input: CreatePacketActionInput) {
@@ -63,6 +70,11 @@ export async function createPacketAction(input: CreatePacketActionInput) {
   }
   if (input.includedCredentialIds.length === 0) {
     return { ok: false as const, error: "Choose at least one credential to share." };
+  }
+
+  const reviewerEmail = input.reviewerEmail?.trim();
+  if (reviewerEmail && !isValidEmail(reviewerEmail)) {
+    return { ok: false as const, error: "Enter a valid reviewer email address." };
   }
 
   const packet = await createPacket({
@@ -75,8 +87,37 @@ export async function createPacketAction(input: CreatePacketActionInput) {
     expiresInDays: input.expiresInDays,
   });
 
+  let emailSent = false;
+  let emailError: string | undefined;
+
+  if (reviewerEmail) {
+    const resident = await getResident(input.residentId);
+    const senderName = resident?.displayName ?? "Someone";
+    const verifyUrl = `${getAppBaseUrl()}/verify/${packet.token}`;
+    const emailResult = await sendSharePacketEmail({
+      to: reviewerEmail,
+      senderName,
+      packetLabel: packet.label,
+      verifyUrl,
+      expiresInDays: input.expiresInDays,
+      intro: packet.intro,
+    });
+
+    if (emailResult.ok) {
+      emailSent = true;
+    } else {
+      emailError = emailResult.error;
+    }
+  }
+
   revalidatePath(`/resident/${input.residentId}`);
-  return { ok: true as const, token: packet.token };
+  return {
+    ok: true as const,
+    token: packet.token,
+    emailSent,
+    emailError,
+    reviewerEmail: reviewerEmail || undefined,
+  };
 }
 
 export async function revokePacketAction(residentId: string, token: string) {

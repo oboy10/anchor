@@ -39,10 +39,14 @@ export function PacketBuilder({
   const [label, setLabel] = React.useState("");
   const [purpose, setPurpose] = React.useState<SharePacket["purpose"]>("housing");
   const [intro, setIntro] = React.useState("");
+  const [reviewerEmail, setReviewerEmail] = React.useState("");
   const [expiresInDays, setExpiresInDays] = React.useState("14");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [createdToken, setCreatedToken] = React.useState<string | null>(null);
+  const [emailSent, setEmailSent] = React.useState(false);
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+  const [sentToEmail, setSentToEmail] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
 
   const active = credentials.filter((c) => c.status !== "corrected");
@@ -54,9 +58,13 @@ export function PacketBuilder({
     setLabel("");
     setPurpose("housing");
     setIntro("");
+    setReviewerEmail("");
     setExpiresInDays("14");
     setError(null);
     setCreatedToken(null);
+    setEmailSent(false);
+    setEmailError(null);
+    setSentToEmail(null);
     setCopied(false);
   }
 
@@ -88,6 +96,7 @@ export function PacketBuilder({
       sharedNoteCredentialIds: [...sharedNotes],
       intro: intro || undefined,
       expiresInDays: Number(expiresInDays),
+      reviewerEmail: reviewerEmail.trim() || undefined,
     });
     setPending(false);
     if (!result.ok) {
@@ -95,6 +104,9 @@ export function PacketBuilder({
       return;
     }
     setCreatedToken(result.token);
+    setEmailSent(result.emailSent);
+    setEmailError(result.emailError ?? null);
+    setSentToEmail(result.reviewerEmail ?? null);
     setStep("done");
   }
 
@@ -197,8 +209,10 @@ export function PacketBuilder({
           step === "select"
             ? "Only what you select will appear on the verification page."
             : step === "preview"
-              ? "Review the packet before creating the link."
-              : "Copy the link and send it directly to the person reviewing your application."
+              ? "Review the packet and send the link to your reviewer."
+              : emailSent
+                ? "The verification link was emailed to your reviewer."
+                : "Copy the link and send it directly to the person reviewing your application."
         }
         footer={
           step === "select" ? (
@@ -220,7 +234,11 @@ export function PacketBuilder({
                 Back
               </Button>
               <Button type="button" disabled={pending} onClick={handleCreate}>
-                {pending ? "Creating…" : "Create packet"}
+                {pending
+                  ? "Creating…"
+                  : reviewerEmail.trim()
+                    ? "Create & send email"
+                    : "Create packet"}
               </Button>
             </>
           ) : (
@@ -310,6 +328,14 @@ export function PacketBuilder({
                 { value: "30", label: "30 days" },
               ]}
             />
+            <FormField
+              label="Reviewer email"
+              hint="We'll email them the verification link. Leave blank to copy the link yourself."
+              type="email"
+              autoComplete="email"
+              value={reviewerEmail}
+              onChange={(e) => setReviewerEmail(e.target.value)}
+            />
             <TextAreaField
               label="Optional message for the reviewer"
               hint="Shown at the top of the verification page."
@@ -333,6 +359,17 @@ export function PacketBuilder({
 
         {step === "done" && createdToken ? (
           <div className="space-y-4">
+            {emailSent && sentToEmail ? (
+              <InlineNotice tone="calm" title="Email sent">
+                We sent the verification link to{" "}
+                <span className="font-medium text-ink">{sentToEmail}</span>.
+              </InlineNotice>
+            ) : null}
+            {emailError ? (
+              <InlineNotice tone="warning" title="Email could not be sent">
+                {emailError} You can still copy the link below.
+              </InlineNotice>
+            ) : null}
             <InlineNotice tone="calm" title="Shared directly by you">
               Only the credentials you selected appear on this page. You can revoke
               it from your wallet at any time.
