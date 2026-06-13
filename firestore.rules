@@ -5,8 +5,10 @@ rules_version = '2';
  *
  * Application data is NOT stored in Firestore; it lives in each user's browser
  * (see lib/local/db) and travels inside self-contained share links. The only
- * server-side collection is `registeredEmails`, which holds SHA-256 hashes of
- * registered emails (no plaintext, no recoverable personal data).
+ * server-side collections (all Admin SDK only, no client access):
+ *   - registeredEmails — SHA-256 email hashes
+ *   - pendingVerifications — short-lived verification codes (hashed)
+ *   - registeredIdentities — SHA-256 email/phone hashes (anti double-register)
  *
  * Writes to that collection go through the Admin SDK (server-side), which
  * bypasses these rules; clients are denied all direct access.
@@ -15,6 +17,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Email hash registry — server-only (Admin SDK). No client access.
     match /registeredEmails/{hash} {
+      allow read, write: if false;
+    }
+
+    match /pendingVerifications/{hash} {
+      allow read, write: if false;
+    }
+
+    match /registeredIdentities/{hash} {
       allow read, write: if false;
     }
 

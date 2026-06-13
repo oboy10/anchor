@@ -39,9 +39,9 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 Or set `GOOGLE_APPLICATION_CREDENTIALS=./service-account.json` for local dev.
 
-When Admin credentials are present, the app **persists to Firestore** and auto-seeds demo data on first request.
+When Admin credentials are present, the server can store **hashed** email/phone registries in Firestore (see collections below).
 
-Without Admin credentials, the app runs on an **in-memory demo store** (no Firebase required).
+Without Admin credentials, verification and email registry fall back to in-memory mode for local dev.
 
 ### 3. Optional email and SMS delivery
 
@@ -76,17 +76,19 @@ Rules live in `firestore.rules`. See that file for the security model.
 
 ## Firestore collections
 
+The app is **local-first** — wallet data lives in the browser. Firestore only holds hashed identifiers (no plaintext PII):
+
 | Collection | Purpose |
 |---|---|
-| `users/{fingerprint}` | Public Ed25519 keys + role |
-| `slugs/{slug}` | URL slug → fingerprint |
-| `residents/{fingerprint}` | Resident profile |
-| `providers/{fingerprint}` | Provider profile |
-| `attestations/{nonce}` | Signed credential records |
-| `residentNotes/{id}` | Resident-owned notes (unsigned) |
-| `sharePackets/{token}` | Time-limited share links |
-| `endorsements/{id}` | Endorsements |
-| `meta/demoSeed` | Seed marker |
+| `registeredEmails/{hash}` | SHA-256 of registered emails (future encrypted backup lookup) |
+| `pendingVerifications/{hash}` | Short-lived verification codes (hashed), auto-expire |
+| `registeredIdentities/{hash}` | SHA-256 of verified email/phone (prevent double registration) |
+
+Legacy collections from earlier builds (`users`, `attestations`, `sharePackets`, etc.) are unused. Remove with:
+
+```bash
+npm run firebase:cleanup
+```
 
 ## Routes
 
