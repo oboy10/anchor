@@ -39,7 +39,10 @@ export function PacketBuilder({
   const [label, setLabel] = React.useState("");
   const [purpose, setPurpose] = React.useState<SharePacket["purpose"]>("housing");
   const [intro, setIntro] = React.useState("");
+  const [deliveryMethod, setDeliveryMethod] =
+    React.useState<"email" | "sms" | "copy">("email");
   const [reviewerEmail, setReviewerEmail] = React.useState("");
+  const [reviewerPhone, setReviewerPhone] = React.useState("");
   const [expiresInDays, setExpiresInDays] = React.useState("14");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -47,6 +50,9 @@ export function PacketBuilder({
   const [emailSent, setEmailSent] = React.useState(false);
   const [emailError, setEmailError] = React.useState<string | null>(null);
   const [sentToEmail, setSentToEmail] = React.useState<string | null>(null);
+  const [smsSent, setSmsSent] = React.useState(false);
+  const [smsError, setSmsError] = React.useState<string | null>(null);
+  const [sentToPhone, setSentToPhone] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
 
   const active = credentials.filter((c) => c.status !== "corrected");
@@ -58,13 +64,18 @@ export function PacketBuilder({
     setLabel("");
     setPurpose("housing");
     setIntro("");
+    setDeliveryMethod("email");
     setReviewerEmail("");
+    setReviewerPhone("");
     setExpiresInDays("14");
     setError(null);
     setCreatedToken(null);
     setEmailSent(false);
     setEmailError(null);
     setSentToEmail(null);
+    setSmsSent(false);
+    setSmsError(null);
+    setSentToPhone(null);
     setCopied(false);
   }
 
@@ -96,7 +107,9 @@ export function PacketBuilder({
       sharedNoteCredentialIds: [...sharedNotes],
       intro: intro || undefined,
       expiresInDays: Number(expiresInDays),
-      reviewerEmail: reviewerEmail.trim() || undefined,
+      deliveryMethod,
+      reviewerEmail: deliveryMethod === "email" ? reviewerEmail.trim() || undefined : undefined,
+      reviewerPhone: deliveryMethod === "sms" ? reviewerPhone.trim() || undefined : undefined,
     });
     setPending(false);
     if (!result.ok) {
@@ -107,6 +120,9 @@ export function PacketBuilder({
     setEmailSent(result.emailSent);
     setEmailError(result.emailError ?? null);
     setSentToEmail(result.reviewerEmail ?? null);
+    setSmsSent(result.smsSent);
+    setSmsError(result.smsError ?? null);
+    setSentToPhone(result.reviewerPhone ?? null);
     setStep("done");
   }
 
@@ -212,6 +228,8 @@ export function PacketBuilder({
               ? "Review the packet and send the link to your reviewer."
               : emailSent
                 ? "The verification link was emailed to your reviewer."
+                : smsSent
+                  ? "The verification link was sent by text message to your reviewer."
                 : "Copy the link and send it directly to the person reviewing your application."
         }
         footer={
@@ -236,9 +254,11 @@ export function PacketBuilder({
               <Button type="button" disabled={pending} onClick={handleCreate}>
                 {pending
                   ? "Creating…"
-                  : reviewerEmail.trim()
+                  : deliveryMethod === "email"
                     ? "Create & send email"
-                    : "Create packet"}
+                    : deliveryMethod === "sms"
+                      ? "Create & send text"
+                      : "Create packet"}
               </Button>
             </>
           ) : (
@@ -328,14 +348,38 @@ export function PacketBuilder({
                 { value: "30", label: "30 days" },
               ]}
             />
-            <FormField
-              label="Reviewer email"
-              hint="We'll email them the verification link. Leave blank to copy the link yourself."
-              type="email"
-              autoComplete="email"
-              value={reviewerEmail}
-              onChange={(e) => setReviewerEmail(e.target.value)}
+            <SelectField
+              label="Delivery"
+              value={deliveryMethod}
+              onChange={(e) =>
+                setDeliveryMethod(e.target.value as "email" | "sms" | "copy")
+              }
+              options={[
+                { value: "email", label: "Email" },
+                { value: "sms", label: "Text message" },
+                { value: "copy", label: "Copy link" },
+              ]}
             />
+            {deliveryMethod === "email" ? (
+              <FormField
+                label="Reviewer email"
+                hint="We'll email them the verification link."
+                type="email"
+                autoComplete="email"
+                value={reviewerEmail}
+                onChange={(e) => setReviewerEmail(e.target.value)}
+              />
+            ) : null}
+            {deliveryMethod === "sms" ? (
+              <FormField
+                label="Reviewer phone"
+                hint="We'll text them the verification link. US numbers can be entered without a country code."
+                type="tel"
+                autoComplete="tel"
+                value={reviewerPhone}
+                onChange={(e) => setReviewerPhone(e.target.value)}
+              />
+            ) : null}
             <TextAreaField
               label="Optional message for the reviewer"
               hint="Shown at the top of the verification page."
@@ -365,9 +409,20 @@ export function PacketBuilder({
                 <span className="font-medium text-ink">{sentToEmail}</span>.
               </InlineNotice>
             ) : null}
+            {smsSent && sentToPhone ? (
+              <InlineNotice tone="calm" title="Text sent">
+                We sent the verification link to{" "}
+                <span className="font-medium text-ink">{sentToPhone}</span>.
+              </InlineNotice>
+            ) : null}
             {emailError ? (
               <InlineNotice tone="warning" title="Email could not be sent">
                 {emailError} You can still copy the link below.
+              </InlineNotice>
+            ) : null}
+            {smsError ? (
+              <InlineNotice tone="warning" title="Text could not be sent">
+                {smsError} You can still copy the link below.
               </InlineNotice>
             ) : null}
             <InlineNotice tone="calm" title="Shared directly by you">

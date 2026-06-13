@@ -13,6 +13,27 @@ export interface SendSharePacketEmailInput {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+interface ResendEmailClient {
+  emails: {
+    send(input: {
+      from: string;
+      to: string;
+      subject: string;
+      html: string;
+    }): Promise<{ error?: { message?: string } | null }>;
+  };
+}
+
+type ResendClientFactory = (apiKey: string) => ResendEmailClient;
+
+let resendClientFactoryForTesting: ResendClientFactory | undefined;
+
+export function setResendClientFactoryForTesting(
+  factory: ResendClientFactory | undefined,
+) {
+  resendClientFactoryForTesting = factory;
+}
+
 export function isValidEmail(value: string): boolean {
   return EMAIL_PATTERN.test(value.trim());
 }
@@ -118,7 +139,8 @@ export async function sendSharePacketEmail(
     return { ok: false, error: "Email is not configured (missing RESEND_FROM)." };
   }
 
-  const resend = new Resend(apiKey);
+  const createClient = resendClientFactoryForTesting ?? ((key: string) => new Resend(key));
+  const resend = createClient(apiKey);
   const { error } = await resend.emails.send({
     from,
     to: input.to.trim(),

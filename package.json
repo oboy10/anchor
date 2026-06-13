@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test:anchor": "npm run test:anchor:protocol && npm run test:anchor:workflow",
     "test:anchor:protocol": "node --import tsx --test tests/anchor-protocol.test.ts",
-    "test:anchor:workflow": "tsx tests/anchor-workflow.test.ts",
+    "test:anchor:workflow": "node --conditions react-server --import tsx tests/anchor-workflow.test.ts",
+    "test:packet": "NODE_ENV=test node --conditions react-server --import tsx tests/packet-action.test.ts",
+    "test:sms": "node --conditions react-server --import tsx --test tests/sms.test.ts",
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes",
     "seed": "tsx scripts/seed.ts",
     "vercel:env": "node scripts/sync-vercel-env.mjs"
@@ -25,7 +27,8 @@
     "react-dom": "19.2.4",
     "resend": "^6.12.4",
     "server-only": "^0.0.1",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "twilio": "^6.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

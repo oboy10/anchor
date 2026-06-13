@@ -43,7 +43,27 @@ When Admin credentials are present, the app **persists to Firestore** and auto-s
 
 Without Admin credentials, the app runs on an **in-memory demo store** (no Firebase required).
 
-### 3. Deploy Firestore rules & indexes
+### 3. Optional email and SMS delivery
+
+Share packets work as copyable links without provider credentials. To send packet
+links by email, configure Resend:
+
+```bash
+RESEND_API_KEY=
+RESEND_FROM=Anchor <hello@yourdomain.com>
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+To send packet links and Anchor attestation requests by SMS, configure Twilio
+with a Messaging Service:
+
+```bash
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_MESSAGING_SERVICE_SID=
+```
+
+### 4. Deploy Firestore rules & indexes
 
 ```bash
 npm install -g firebase-tools
@@ -92,6 +112,8 @@ Production: [milpitas-hacks-red.vercel.app](https://milpitas-hacks-red.vercel.ap
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Service account — enables Firestore |
 | `RESEND_API_KEY` | From [Resend](https://resend.com/api-keys) — share packet emails |
 | `RESEND_FROM` | e.g. `Anchor <hello@yourdomain.com>` — must use a [verified domain](https://resend.com/domains) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | From Twilio Console — SMS delivery |
+| `TWILIO_MESSAGING_SERVICE_SID` | Twilio Messaging Service SID used as the sender |
 | `NEXT_PUBLIC_APP_URL` | `https://milpitas-hacks-red.vercel.app` |
 
 Or sync from your local `.env.local` after `vercel login` and `vercel link`:
@@ -105,7 +127,7 @@ vercel --prod
 
 **Vercel `FIREBASE_PRIVATE_KEY`:** paste the full key from the service account JSON `private_key` field. Either paste it as one line with `\n` between lines (same as `.env.local`), or paste the multiline PEM directly — do not add extra quotes in the Vercel UI.
 
-Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY`, share packets still work but emails are not sent.
+Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY` or Twilio credentials, share packets still work but provider delivery is not sent.
 
 ### Resend setup (custom domain)
 

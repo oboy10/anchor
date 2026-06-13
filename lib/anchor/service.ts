@@ -131,7 +131,12 @@ export function createAnchorAttestationRequest(
 
   const timestamp = now();
   return repoCreateAttestationRequest({
-    ...input,
+    subjectFingerprint: input.subjectFingerprint,
+    issuerFingerprint: input.issuerFingerprint,
+    externalContact: input.externalContact,
+    requestedType: input.requestedType,
+    requestedFields: input.requestedFields,
+    note: input.note,
     id: id("ar"),
     status: "pending",
     createdAt: timestamp,

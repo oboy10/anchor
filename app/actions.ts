@@ -14,7 +14,27 @@ import {
   isValidEmail,
   sendSharePacketEmail,
 } from "@/lib/email/share-packet";
+import {
+  isValidPhoneNumber,
+  normalizePhoneNumber,
+  sendSharePacketSms,
+} from "@/lib/sms/twilio";
 import type { CredentialType, SharePacket } from "@/types";
+
+function revalidatePathAfterMutation(path: string) {
+  try {
+    revalidatePath(path);
+  } catch (error) {
+    if (
+      process.env.NODE_ENV === "test" &&
+      error instanceof Error &&
+      error.message.includes("static generation store missing")
+    ) {
+      return;
+    }
+    throw error;
+  }
+}
 
 export interface IssueCredentialActionInput {
   residentId: string;
@@ -47,9 +67,9 @@ export async function issueCredentialAction(input: IssueCredentialActionInput) {
     },
   });
 
-  revalidatePath(`/resident/${input.residentId}`);
-  revalidatePath("/provider");
-  revalidatePath("/admin");
+  revalidatePathAfterMutation(`/resident/${input.residentId}`);
+  revalidatePathAfterMutation("/provider");
+  revalidatePathAfterMutation("/admin");
   return { ok: true as const, credentialId: credential.id };
 }
 
@@ -61,7 +81,9 @@ export interface CreatePacketActionInput {
   sharedNoteCredentialIds: string[];
   intro?: string;
   expiresInDays: number;
+  deliveryMethod?: "email" | "sms" | "copy";
   reviewerEmail?: string;
+  reviewerPhone?: string;
 }
 
 export async function createPacketAction(input: CreatePacketActionInput) {
@@ -73,8 +95,21 @@ export async function createPacketAction(input: CreatePacketActionInput) {
   }
 
   const reviewerEmail = input.reviewerEmail?.trim();
-  if (reviewerEmail && !isValidEmail(reviewerEmail)) {
+  const reviewerPhone = input.reviewerPhone?.trim();
+  const deliveryMethod =
+    input.deliveryMethod ?? (reviewerEmail ? "email" : "copy");
+
+  if (deliveryMethod === "email" && !reviewerEmail) {
+    return { ok: false as const, error: "Enter a reviewer email address." };
+  }
+  if (deliveryMethod === "email" && reviewerEmail && !isValidEmail(reviewerEmail)) {
     return { ok: false as const, error: "Enter a valid reviewer email address." };
+  }
+  if (deliveryMethod === "sms" && !reviewerPhone) {
+    return { ok: false as const, error: "Enter a reviewer phone number." };
+  }
+  if (deliveryMethod === "sms" && reviewerPhone && !isValidPhoneNumber(reviewerPhone)) {
+    return { ok: false as const, error: "Enter a valid reviewer phone number." };
   }
 
   const packet = await createPacket({
@@ -89,8 +124,13 @@ export async function createPacketAction(input: CreatePacketActionInput) {
 
   let emailSent = false;
   let emailError: string | undefined;
+  let smsSent = false;
+  let smsError: string | undefined;
+  const normalizedReviewerPhone = reviewerPhone
+    ? normalizePhoneNumber(reviewerPhone) ?? undefined
+    : undefined;
 
-  if (reviewerEmail) {
+  if (deliveryMethod === "email" && reviewerEmail) {
     const resident = await getResident(input.residentId);
     const senderName = resident?.displayName ?? "Someone";
     const verifyUrl = `${getAppBaseUrl()}/verify/${packet.token}`;
@@ -110,20 +150,42 @@ export async function createPacketAction(input: CreatePacketActionInput) {
     }
   }
 
-  revalidatePath(`/resident/${input.residentId}`);
+  if (deliveryMethod === "sms" && normalizedReviewerPhone) {
+    const resident = await getResident(input.residentId);
+    const senderName = resident?.displayName ?? "Someone";
+    const verifyUrl = `${getAppBaseUrl()}/verify/${packet.token}`;
+    const smsResult = await sendSharePacketSms({
+      to: normalizedReviewerPhone,
+      senderName,
+      packetLabel: packet.label,
+      verifyUrl,
+      expiresInDays: input.expiresInDays,
+    });
+
+    if (smsResult.ok) {
+      smsSent = true;
+    } else {
+      smsError = smsResult.error;
+    }
+  }
+
+  revalidatePathAfterMutation(`/resident/${input.residentId}`);
   return {
     ok: true as const,
     token: packet.token,
     emailSent,
     emailError,
-    reviewerEmail: reviewerEmail || undefined,
+    reviewerEmail: deliveryMethod === "email" ? reviewerEmail || undefined : undefined,
+    smsSent,
+    smsError,
+    reviewerPhone: deliveryMethod === "sms" ? normalizedReviewerPhone : undefined,
   };
 }
 
 export async function revokePacketAction(residentId: string, token: string) {
   await revokePacket(token);
-  revalidatePath(`/resident/${residentId}`);
-  revalidatePath(`/verify/${token}`);
+  revalidatePathAfterMutation(`/resident/${residentId}`);
+  revalidatePathAfterMutation(`/verify/${token}`);
   return { ok: true as const };
 }
 
@@ -133,14 +195,14 @@ export async function setResidentNoteAction(
   note: string,
 ) {
   await setResidentNote(residentId, credentialId, note);
-  revalidatePath(`/resident/${residentId}`);
+  revalidatePathAfterMutation(`/resident/${residentId}`);
   return { ok: true as const };
 }
 
 export async function reseedAction() {
   await reseed();
-  revalidatePath("/admin");
-  revalidatePath("/resident/r_marcus");
-  revalidatePath("/provider");
+  revalidatePathAfterMutation("/admin");
+  revalidatePathAfterMutation("/resident/r_marcus");
+  revalidatePathAfterMutation("/provider");
   return { ok: true as const };
 }

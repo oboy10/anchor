@@ -67,9 +67,16 @@ export interface AttestationRequestCreate {
   requestedType: AnchorMessageType;
   requestedFields: string[];
   note?: string;
+  deliveryMethod?: "email" | "sms" | "none";
+  recipientEmail?: string;
+  recipientPhone?: string;
 }
 
-export interface AttestationRequestView extends AttestationRequestCreate {
+export interface AttestationRequestView
+  extends Omit<
+    AttestationRequestCreate,
+    "deliveryMethod" | "recipientEmail" | "recipientPhone"
+  > {
   id: string;
   status: AnchorRequestStatus;
   linkedPresentationId?: string;

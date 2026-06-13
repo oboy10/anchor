@@ -17,6 +17,7 @@ import {
   registerAnchorIdentity,
   verifyAnchorPresentation,
 } from "../lib/anchor/service";
+import { setTwilioClientFactoryForTesting } from "../lib/sms/twilio";
 import {
   anchorDemoIdentities,
   signAnchorDemoIntent,
@@ -38,6 +39,11 @@ function jsonRequest(url: string, body: unknown): Request {
 
 async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
+}
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }
 
 async function main() {
@@ -117,6 +123,85 @@ async function main() {
   assert.equal(createRequestResponse.status, 201);
   assert.equal(createRequestBody.request.status, "pending");
 
+  const twilioEnv = {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+    appUrl: process.env.NEXT_PUBLIC_APP_URL,
+  };
+  process.env.TWILIO_ACCOUNT_SID = "AC_test";
+  process.env.TWILIO_AUTH_TOKEN = "token_test";
+  process.env.TWILIO_MESSAGING_SERVICE_SID = "MG_test";
+  process.env.NEXT_PUBLIC_APP_URL = "https://anchor.example.test";
+
+  const sentSms: unknown[] = [];
+  setTwilioClientFactoryForTesting(() => ({
+    messages: {
+      async create(input) {
+        sentSms.push(input);
+      },
+    },
+  }));
+
+  const smsRequestResponse = await postRequest(
+    jsonRequest("http://localhost/api/anchor/attestation-requests", {
+      subjectFingerprint: anchorDemoIdentities.subject.fingerprint,
+      deliveryMethod: "sms",
+      recipientPhone: "(415) 555-2671",
+      requestedType: "reference",
+      requestedFields: ["a.ref:relationship"],
+      note: "SMS request test.",
+    }),
+  );
+  const smsRequestBody = await json<{
+    request: {
+      id: string;
+      status: string;
+      externalContact?: { type: string; url: string };
+      recipientPhone?: string;
+    };
+    smsSent: boolean;
+    smsError?: string;
+    recipientPhone?: string;
+  }>(smsRequestResponse);
+  assert.equal(smsRequestResponse.status, 201);
+  assert.equal(smsRequestBody.smsSent, true);
+  assert.equal(smsRequestBody.smsError, undefined);
+  assert.equal(smsRequestBody.recipientPhone, "+14155552671");
+  assert.deepEqual(smsRequestBody.request.externalContact, {
+    type: "phone",
+    url: "tel:+14155552671",
+  });
+  assert.equal(smsRequestBody.request.recipientPhone, undefined);
+  assert.equal(sentSms.length, 1);
+
+  delete process.env.TWILIO_ACCOUNT_SID;
+  const failedSmsRequestResponse = await postRequest(
+    jsonRequest("http://localhost/api/anchor/attestation-requests", {
+      subjectFingerprint: anchorDemoIdentities.subject.fingerprint,
+      deliveryMethod: "sms",
+      recipientPhone: "+14155552672",
+      requestedType: "reference",
+      requestedFields: ["a.ref:relationship"],
+      note: "SMS failure should still persist.",
+    }),
+  );
+  const failedSmsRequestBody = await json<{
+    request: { id: string; status: string };
+    smsSent: boolean;
+    smsError?: string;
+  }>(failedSmsRequestResponse);
+  assert.equal(failedSmsRequestResponse.status, 201);
+  assert.equal(failedSmsRequestBody.request.status, "pending");
+  assert.equal(failedSmsRequestBody.smsSent, false);
+  assert.match(failedSmsRequestBody.smsError ?? "", /TWILIO_ACCOUNT_SID/);
+
+  setTwilioClientFactoryForTesting(undefined);
+  restoreEnv("TWILIO_ACCOUNT_SID", twilioEnv.accountSid);
+  restoreEnv("TWILIO_AUTH_TOKEN", twilioEnv.authToken);
+  restoreEnv("TWILIO_MESSAGING_SERVICE_SID", twilioEnv.messagingServiceSid);
+  restoreEnv("NEXT_PUBLIC_APP_URL", twilioEnv.appUrl);
+
   const listRequestsResponse = await listRequests(
     new Request(
       `http://localhost/api/anchor/attestation-requests?subject=${anchorDemoIdentities.subject.fingerprint}`,
@@ -124,7 +209,7 @@ async function main() {
   );
   const listRequestsBody = await json<{ requests: unknown[] }>(listRequestsResponse);
   assert.equal(listRequestsResponse.status, 200);
-  assert.equal(listRequestsBody.requests.length >= 1, true);
+  assert.equal(listRequestsBody.requests.length >= 3, true);
 
   const issuanceResponse = await postIssuance(
     jsonRequest("http://localhost/api/anchor/issuance", {
