@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/*
+  TrustWallet design tokens — warm-neutral, one muted accent.
+  Defined as CSS variables and exposed to Tailwind v4 via @theme.
+*/
+:root {
+  --canvas: #f6f4ef; /* warm stone background */
+  --surface: #fdfcf9; /* lifted card surface */
+  --surface-sunken: #f1eee7;
+  --ink: #2b2a26; /* charcoal, never pure black */
+  --ink-muted: #6f6b62;
+  --ink-faint: #918c81;
+  --line: #e7e2d8; /* subtle hairline border */
+  --line-strong: #d8d2c6;
+
+  --accent: #2f6b58; /* muted evergreen */
+  --accent-hover: #275a4a;
+  --accent-soft: #e7efe9;
+  --accent-ink: #1f4a3c;
+
+  --verified: #2f6b58;
+  --verified-soft: #e7efe9;
+  --warning: #8a6516;
+  --warning-soft: #f5edd9;
+  --danger: #9a3b32;
+  --danger-soft: #f4e4e1;
+  --info: #3a5a78;
+  --info-soft: #e6edf3;
+
+  --ring: #2f6b58;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-verified: var(--verified);
+  --color-verified-soft: var(--verified-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  --radius-card: 14px;
+
+  --shadow-card: 0 1px 2px rgba(43, 42, 38, 0.04), 0 2px 8px rgba(43, 42, 38, 0.04);
+  --shadow-lift: 0 4px 16px rgba(43, 42, 38, 0.08);
+}
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible, consistent focus states everywhere. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Utility: tabular figures for ledgers and metrics. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
