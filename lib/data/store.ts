@@ -57,7 +57,10 @@ interface Store {
 }
 
 const GLOBAL_KEY = "__trustwallet_store__";
-type GlobalWithStore = typeof globalThis & { [GLOBAL_KEY]?: Store };
+type GlobalWithStore = typeof globalThis & {
+  [GLOBAL_KEY]?: Store;
+  __trustwallet_seed__?: Promise<Store>;
+};
 
 function emptyStore(): Store {
   return {
@@ -77,13 +80,22 @@ function isValidStore(store: Store | undefined): store is Store {
   return !!store?.users && !!store.slugToFingerprint && !!store.attestations;
 }
 
-function getStore(): Store {
+/**
+ * Seeding signs attestations with WebCrypto (async), so store access is async.
+ * The seed runs once; concurrent callers share the same in-flight promise.
+ */
+function getStore(): Promise<Store> {
   const g = globalThis as GlobalWithStore;
-  if (!isValidStore(g[GLOBAL_KEY])) {
-    g[GLOBAL_KEY] = emptyStore();
-    seed(g[GLOBAL_KEY]!);
+  if (isValidStore(g[GLOBAL_KEY])) return Promise.resolve(g[GLOBAL_KEY]);
+  if (!g.__trustwallet_seed__) {
+    g.__trustwallet_seed__ = (async () => {
+      const store = emptyStore();
+      await seed(store);
+      g[GLOBAL_KEY] = store;
+      return store;
+    })();
   }
-  return g[GLOBAL_KEY]!;
+  return g.__trustwallet_seed__;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,21 +114,23 @@ function registerUser(store: Store, key: keyof typeof DEMO_KEYS): User {
 }
 
 /** Resolve slug or fingerprint to canonical fingerprint. */
-export function resolveFingerprint(idOrSlug: string): Fingerprint | undefined {
-  const store = getStore();
+export async function resolveFingerprint(
+  idOrSlug: string,
+): Promise<Fingerprint | undefined> {
+  const store = await getStore();
   if (store.users.has(idOrSlug)) return idOrSlug;
   return store.slugToFingerprint.get(idOrSlug);
 }
 
-function getUser(fingerprint: Fingerprint): User | undefined {
-  return getStore().users.get(fingerprint);
+async function getUser(fingerprint: Fingerprint): Promise<User | undefined> {
+  return (await getStore()).users.get(fingerprint);
 }
 
 // ---------------------------------------------------------------------------
 // Seeding
 // ---------------------------------------------------------------------------
 
-function appendAttestation(
+async function appendAttestation(
   store: Store,
   input: {
     id: string;
@@ -130,7 +144,7 @@ function appendAttestation(
     corrects?: string;
     status?: string;
   },
-): Attestation {
+): Promise<Attestation> {
   const issuer = store.users.get(input.issuerFingerprint);
   const provider = store.providers.get(input.issuerFingerprint);
   if (!issuer?.privateKey) throw new Error("Issuer key not found");
@@ -151,7 +165,7 @@ function appendAttestation(
     status: input.status ?? "active",
   });
 
-  const record = signAttestation(
+  const record = await signAttestation(
     issuer,
     input.residentFingerprint,
     properties,
@@ -163,7 +177,7 @@ function appendAttestation(
   return record;
 }
 
-function seed(store: Store) {
+async function seed(store: Store) {
   for (const key of Object.keys(DEMO_KEYS) as (keyof typeof DEMO_KEYS)[]) {
     registerUser(store, key);
   }
@@ -180,7 +194,7 @@ function seed(store: Store) {
   for (const issuance of seedIssuances) {
     const residentFp = store.slugToFingerprint.get(issuance.residentSlug)!;
     const issuerFp = store.slugToFingerprint.get(issuance.issuerSlug)!;
-    appendAttestation(store, {
+    await appendAttestation(store, {
       id: issuance.id,
       residentFingerprint: residentFp,
       issuerFingerprint: issuerFp,
@@ -213,36 +227,37 @@ function seed(store: Store) {
   });
 }
 
-export function reseed(): void {
+export async function reseed(): Promise<void> {
   const g = globalThis as GlobalWithStore;
-  g[GLOBAL_KEY] = emptyStore();
-  seed(g[GLOBAL_KEY]!);
+  g[GLOBAL_KEY] = undefined;
+  g.__trustwallet_seed__ = undefined;
+  await getStore();
 }
 
 // ---------------------------------------------------------------------------
 // Read API
 // ---------------------------------------------------------------------------
 
-export function listResidents(): Resident[] {
-  return [...getStore().residents.values()];
+export async function listResidents(): Promise<Resident[]> {
+  return [...(await getStore()).residents.values()];
 }
 
-export function getResident(idOrSlug: string): Resident | undefined {
-  const fp = resolveFingerprint(idOrSlug);
-  return fp ? getStore().residents.get(fp) : undefined;
+export async function getResident(idOrSlug: string): Promise<Resident | undefined> {
+  const fp = await resolveFingerprint(idOrSlug);
+  return fp ? (await getStore()).residents.get(fp) : undefined;
 }
 
-export function listProviders(): Provider[] {
-  return [...getStore().providers.values()];
+export async function listProviders(): Promise<Provider[]> {
+  return [...(await getStore()).providers.values()];
 }
 
-export function getProvider(idOrSlug: string): Provider | undefined {
-  const fp = resolveFingerprint(idOrSlug);
-  return fp ? getStore().providers.get(fp) : undefined;
+export async function getProvider(idOrSlug: string): Promise<Provider | undefined> {
+  const fp = await resolveFingerprint(idOrSlug);
+  return fp ? (await getStore()).providers.get(fp) : undefined;
 }
 
-export function getPublicKey(fingerprint: Fingerprint) {
-  const u = getUser(fingerprint);
+export async function getPublicKey(fingerprint: Fingerprint) {
+  const u = await getUser(fingerprint);
   if (!u) return undefined;
   return { fingerprint: u.fingerprint, publicKey: u.publicKey };
 }
@@ -259,40 +274,44 @@ function attestationsToCredentials(
   }));
 }
 
-export function getLedger(idOrSlug: string): Credential[] {
-  const fp = resolveFingerprint(idOrSlug);
+export async function getLedger(idOrSlug: string): Promise<Credential[]> {
+  const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];
-  return attestationsToCredentials(getStore(), fp);
+  return attestationsToCredentials(await getStore(), fp);
 }
 
-export function getCredential(
+export async function getCredential(
   idOrSlug: string,
   credentialId: string,
-): Credential | undefined {
-  return getLedger(idOrSlug).find((c) => c.id === credentialId);
+): Promise<Credential | undefined> {
+  return (await getLedger(idOrSlug)).find((c) => c.id === credentialId);
 }
 
-export function getEndorsements(idOrSlug: string): Endorsement[] {
-  const fp = resolveFingerprint(idOrSlug);
+export async function getEndorsements(idOrSlug: string): Promise<Endorsement[]> {
+  const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];
-  return getStore().endorsements.filter((e) => e.residentFingerprint === fp);
+  return (await getStore()).endorsements.filter((e) => e.residentFingerprint === fp);
 }
 
-export function getPacket(token: string): SharePacket | undefined {
-  return getStore().packets.get(token);
+export async function getPacket(token: string): Promise<SharePacket | undefined> {
+  return (await getStore()).packets.get(token);
 }
 
-export function listPacketsForResident(idOrSlug: string): SharePacket[] {
-  const fp = resolveFingerprint(idOrSlug);
+export async function listPacketsForResident(
+  idOrSlug: string,
+): Promise<SharePacket[]> {
+  const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];
-  return [...getStore().packets.values()]
+  return [...(await getStore()).packets.values()]
     .filter((p) => p.residentFingerprint === fp)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export function verifyResidentChain(idOrSlug: string): VerificationResult {
-  const store = getStore();
-  const fp = resolveFingerprint(idOrSlug);
+export async function verifyResidentChain(
+  idOrSlug: string,
+): Promise<VerificationResult> {
+  const store = await getStore();
+  const fp = await resolveFingerprint(idOrSlug);
   if (!fp) {
     return {
       chainValid: false,
@@ -302,7 +321,7 @@ export function verifyResidentChain(idOrSlug: string): VerificationResult {
     };
   }
   const records = store.attestations.get(fp) ?? [];
-  const result = verifyAttestations(records, fp, (from) =>
+  const result = await verifyAttestations(records, fp, (from) =>
     store.users.get(from)?.publicKey,
   );
   return toVerificationResult(result);
@@ -323,14 +342,16 @@ export interface IssueCredentialInput {
   corrects?: string;
 }
 
-export function issueCredential(input: IssueCredentialInput): Credential {
-  const store = getStore();
-  const residentFp = resolveFingerprint(input.residentId);
-  const issuerFp = resolveFingerprint(input.issuerId);
+export async function issueCredential(
+  input: IssueCredentialInput,
+): Promise<Credential> {
+  const store = await getStore();
+  const residentFp = await resolveFingerprint(input.residentId);
+  const issuerFp = await resolveFingerprint(input.issuerId);
   if (!residentFp || !issuerFp) throw new Error("Unknown resident or issuer");
 
   const id = `c_${randomBytes(4).toString("hex")}`;
-  const record = appendAttestation(store, {
+  const record = await appendAttestation(store, {
     id,
     residentFingerprint: residentFp,
     issuerFingerprint: issuerFp,
@@ -345,12 +366,12 @@ export function issueCredential(input: IssueCredentialInput): Credential {
   return credentialFromAttestation(record);
 }
 
-export function issueCorrection(
+export async function issueCorrection(
   issuerId: string,
   correction: CorrectionEntry,
-): Credential {
-  const store = getStore();
-  const issuerFp = resolveFingerprint(issuerId);
+): Promise<Credential> {
+  const store = await getStore();
+  const issuerFp = await resolveFingerprint(issuerId);
   const residentFp = correction.residentFingerprint;
   if (!issuerFp) throw new Error("Unknown issuer");
 
@@ -360,7 +381,7 @@ export function issueCorrection(
 
   store.statusOverrides.set(correction.corrects, "corrected");
 
-  const record = appendAttestation(store, {
+  const record = await appendAttestation(store, {
     id: `c_${randomBytes(4).toString("hex")}`,
     residentFingerprint: residentFp,
     issuerFingerprint: issuerFp,
@@ -378,14 +399,14 @@ export function issueCorrection(
   return credentialFromAttestation(record);
 }
 
-export function setResidentNote(
+export async function setResidentNote(
   idOrSlug: string,
   credentialId: string,
   note: string | undefined,
-): void {
-  const fp = resolveFingerprint(idOrSlug);
+): Promise<void> {
+  const fp = await resolveFingerprint(idOrSlug);
   if (!fp) throw new Error("Resident not found");
-  const store = getStore();
+  const store = await getStore();
   if (note?.trim()) store.residentNotes.set(credentialId, note.trim());
   else store.residentNotes.delete(credentialId);
 }
@@ -400,9 +421,11 @@ export interface CreatePacketInput {
   expiresInDays: number;
 }
 
-export function createPacket(input: CreatePacketInput): SharePacket {
-  const store = getStore();
-  const fp = resolveFingerprint(input.residentId);
+export async function createPacket(
+  input: CreatePacketInput,
+): Promise<SharePacket> {
+  const store = await getStore();
+  const fp = await resolveFingerprint(input.residentId);
   if (!fp) throw new Error("Resident not found");
 
   const token = `pk_${randomBytes(9).toString("base64url")}`;
@@ -422,18 +445,20 @@ export function createPacket(input: CreatePacketInput): SharePacket {
   return packet;
 }
 
-export function revokePacket(token: string): void {
-  const packet = getStore().packets.get(token);
+export async function revokePacket(token: string): Promise<void> {
+  const packet = (await getStore()).packets.get(token);
   if (packet && !packet.revokedAt) packet.revokedAt = new Date().toISOString();
 }
 
 /** Export raw attestations for admin inspection. */
-export function getAttestations(idOrSlug: string): Attestation[] {
-  const fp = resolveFingerprint(idOrSlug);
+export async function getAttestations(idOrSlug: string): Promise<Attestation[]> {
+  const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];
-  return [...(getStore().attestations.get(fp) ?? [])];
+  return [...((await getStore()).attestations.get(fp) ?? [])];
 }
 
-export function getUserByFingerprint(fingerprint: Fingerprint): User | undefined {
+export async function getUserByFingerprint(
+  fingerprint: Fingerprint,
+): Promise<User | undefined> {
   return getUser(fingerprint);
 }

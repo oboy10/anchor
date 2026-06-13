@@ -1,16 +1,24 @@
 /**
  * TrustWallet cryptographic exports.
- * Server-only — uses Node Ed25519.
+ * Cross-platform — WebCrypto Ed25519, runs in browser and on the server.
  */
-import "server-only";
 
 export { canonicalize } from "./canonical";
+export {
+  base64UrlToBytes,
+  bytesToHex,
+  concatBytes,
+  hexToBytes,
+  randomBytes,
+  subtle,
+  utf8ToBytes,
+} from "./bytes";
 export {
   clampEd25519Seed,
   fingerprintFromPublicKey,
   fingerprintFromPublicKeyHex,
-  rawPrivateKeyToNode,
-  rawPublicKeyToNode,
+  importPrivateKey,
+  importPublicKey,
   shortHex,
   userFromPrivateSeed,
   userFromSeed,

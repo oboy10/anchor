@@ -29,7 +29,7 @@ async function ensureFirestoreSeeded(): Promise<void> {
 
 async function withStore<T>(
   firestore: (m: typeof import("./firestore-store")) => Promise<T>,
-  memory: (m: typeof import("./store")) => T,
+  memory: (m: typeof import("./store")) => Promise<T>,
 ): Promise<T> {
   const useFs = useFirestore();
   // #region agent log
@@ -148,9 +148,7 @@ export async function revokePacket(token: string) {
 
 export async function reseed() {
   if (useFirestore()) seedChecked = false;
-  return withStore((m) => m.reseed(), (m) => {
-    m.reseed();
-  });
+  return withStore((m) => m.reseed(), (m) => m.reseed());
 }
 
 export async function getAttestations(idOrSlug: string) {
