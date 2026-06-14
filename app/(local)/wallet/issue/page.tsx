@@ -1,10 +1,17 @@
+import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
-import { IssueRequestContent } from "./issue-client";
+import { CredentialSigner } from "@/components/credential-signer";
+import { WalletTabs } from "@/components/wallet-tabs";
 
-export default function WalletIssuePage() {
+export default function IssuePage() {
   return (
-    <AppShell context="Credential request" links={[{ href: "/wallet", label: "Wallet" }]}>
-      <IssueRequestContent />
+    <AppShell context="Wallet">
+      <WalletTabs />
+      <div className="mt-8">
+        <Suspense fallback={null}>
+          <CredentialSigner />
+        </Suspense>
+      </div>
     </AppShell>
   );
 }

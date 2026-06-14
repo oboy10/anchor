@@ -67,10 +67,10 @@ export function ResidentDashboard({
 
   async function handleShareIssueLink() {
     if (typeof window === "undefined") return;
-    const providerUrl = new URL("/provider", window.location.origin);
-    providerUrl.searchParams.set("to", resident.fingerprint);
+    const issueUrl = new URL("/wallet/issue", window.location.origin);
+    issueUrl.searchParams.set("to", resident.fingerprint);
     const requestUrl = new URL("/wallet/issue", window.location.origin);
-    requestUrl.searchParams.set("url", providerUrl.toString());
+    requestUrl.searchParams.set("url", issueUrl.toString());
     const url = requestUrl.toString();
 
     if (navigator.share) {

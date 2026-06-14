@@ -25,10 +25,24 @@ import {
  * "Add credentials". The target fingerprint can be typed or autofilled from a
  * `?to=<fingerprint>` URL parameter.
  */
+function fingerprintFromNestedUrl(raw: string | null): string {
+  if (!raw || typeof window === "undefined") return "";
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.origin !== window.location.origin) return "";
+    return parsed.searchParams.get("to") ?? parsed.searchParams.get("fingerprint") ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function CredentialSigner() {
   const { active } = useAuth();
   const params = useSearchParams();
-  const presetTo = params.get("to") ?? params.get("fingerprint") ?? "";
+  const presetTo =
+    params.get("to") ??
+    params.get("fingerprint") ??
+    fingerprintFromNestedUrl(params.get("url"));
 
   const [toFingerprint, setToFingerprint] = React.useState(presetTo);
   const [issuerName, setIssuerName] = React.useState("");
