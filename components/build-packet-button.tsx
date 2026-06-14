@@ -1,10 +1,15 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { Send } from "lucide-react";
 import { Button, type ButtonProps } from "./ui/button";
-import { PacketModal } from "./packet-modal";
 import type { Credential } from "@/types";
+
+const PacketModal = dynamic(
+  () => import("./packet-modal").then((mod) => mod.PacketModal),
+  { loading: () => null },
+);
 
 export interface BuildPacketButtonProps {
   residentId: string;

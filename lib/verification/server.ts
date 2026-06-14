@@ -27,7 +27,7 @@ const PENDING_COLLECTION = "pendingVerifications";
 const CODE_TTL_MS = 10 * 60 * 1000;
 const REGISTERED_HASHES_PATH =
   process.env.REGISTERED_HASHES_PATH ??
-  join(process.cwd(), ".data", "registered-hashes.json");
+  join(".data", "registered-hashes.json");
 
 function identityHash(channel: Channel, value: string): string {
   return createHash("sha256")
@@ -53,7 +53,10 @@ let registeredHashes: Set<string> | null = null;
 function loadRegisteredHashes(): Set<string> {
   if (registeredHashes) return registeredHashes;
   try {
-    const raw = readFileSync(REGISTERED_HASHES_PATH, "utf8");
+    const raw = readFileSync(
+      /*turbopackIgnore: true*/ REGISTERED_HASHES_PATH,
+      "utf8",
+    );
     const parsed = JSON.parse(raw) as unknown;
     registeredHashes = new Set(Array.isArray(parsed) ? (parsed as string[]) : []);
   } catch {
@@ -64,9 +67,11 @@ function loadRegisteredHashes(): Set<string> {
 }
 
 function persistRegisteredHashes(): void {
-  mkdirSync(dirname(REGISTERED_HASHES_PATH), { recursive: true });
+  mkdirSync(/*turbopackIgnore: true*/ dirname(REGISTERED_HASHES_PATH), {
+    recursive: true,
+  });
   writeFileSync(
-    REGISTERED_HASHES_PATH,
+    /*turbopackIgnore: true*/ REGISTERED_HASHES_PATH,
     JSON.stringify([...loadRegisteredHashes()]),
     "utf8",
   );
