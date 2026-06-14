@@ -90,7 +90,7 @@ export function CredentialSigner() {
       setError(result.error);
       return;
     }
-    exportCredentialFile(result.attestation, title);
+    await exportCredentialFile(result.attestation, title);
     setSuccess(
       "Credential signed and downloaded. Send the file to the recipient — they import it with “Add credentials”.",
     );

@@ -23,7 +23,7 @@
  */
 import { bytesToUtf8, concatBytes, utf8ToBytes } from "./bytes";
 import type { Vault } from "./vault";
-import type { Attestation, SharePacket } from "@/types";
+import type { Attestation, Provider, SharePacket, User } from "@/types";
 
 const MAGIC = Uint8Array.of(0xac, 0xac, 0xac);
 const VERSION = 1;
@@ -35,6 +35,8 @@ export const PACKET = {
   ACCOUNT: 1,
   ATTESTATION: 2,
   SHARE: 3,
+  USER: 4,
+  PROVIDER: 5,
 } as const;
 
 /**
@@ -55,6 +57,10 @@ export interface AnchorArchive {
   accounts: PortableAccount[];
   attestations: Attestation[];
   packets: SharePacket[];
+  /** Public signer identities used to verify bundled attestations. */
+  users?: User[];
+  /** Public signer profiles used to explain who issued bundled attestations. */
+  providers?: Provider[];
 }
 
 function jsonBytes(value: unknown): Uint8Array {
@@ -67,6 +73,8 @@ export function encodeArchive(archive: AnchorArchive): Uint8Array<ArrayBuffer> {
     ...archive.accounts.map((a) => ({ kind: PACKET.ACCOUNT, data: jsonBytes(a) })),
     ...archive.attestations.map((a) => ({ kind: PACKET.ATTESTATION, data: jsonBytes(a) })),
     ...archive.packets.map((p) => ({ kind: PACKET.SHARE, data: jsonBytes(p) })),
+    ...(archive.users ?? []).map((u) => ({ kind: PACKET.USER, data: jsonBytes(u) })),
+    ...(archive.providers ?? []).map((p) => ({ kind: PACKET.PROVIDER, data: jsonBytes(p) })),
   ];
 
   const preamble = new Uint8Array(PREAMBLE_BYTES);
@@ -104,7 +112,13 @@ export function decodeArchive(bytes: Uint8Array): AnchorArchive {
   const count = view.getUint32(offset, false);
   offset += 4;
 
-  const out: AnchorArchive = { accounts: [], attestations: [], packets: [] };
+  const out: AnchorArchive = {
+    accounts: [],
+    attestations: [],
+    packets: [],
+    users: [],
+    providers: [],
+  };
 
   for (let i = 0; i < count; i++) {
     if (offset + PACKET_HEADER_BYTES > bytes.length) {
@@ -122,6 +136,8 @@ export function decodeArchive(bytes: Uint8Array): AnchorArchive {
     if (kind === PACKET.ACCOUNT) out.accounts.push(record);
     else if (kind === PACKET.ATTESTATION) out.attestations.push(record);
     else if (kind === PACKET.SHARE) out.packets.push(record);
+    else if (kind === PACKET.USER) out.users!.push(record);
+    else if (kind === PACKET.PROVIDER) out.providers!.push(record);
   }
   return out;
 }

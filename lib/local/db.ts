@@ -421,6 +421,12 @@ export async function getUserByFingerprint(
   return (await load()).users.get(fingerprint);
 }
 
+export async function getProviderByFingerprint(
+  fingerprint: Fingerprint,
+): Promise<Provider | undefined> {
+  return (await load()).providers.get(fingerprint);
+}
+
 function ledgerFor(store: Store, fp: Fingerprint): Credential[] {
   const records = store.attestations.get(fp) ?? [];
   const creds = credentialsFromAttestations(records, store.residentNotes);
@@ -663,10 +669,38 @@ export async function exportActiveLedger(): Promise<{
 export async function importLedger(
   attestations: Attestation[],
   packets: SharePacket[],
-): Promise<{ attestations: number; packets: number }> {
+  users: User[] = [],
+  providers: Provider[] = [],
+): Promise<{ attestations: number; packets: number; users: number; providers: number }> {
   const store = await load();
   let addedAttestations = 0;
   let addedPackets = 0;
+  let addedUsers = 0;
+  let addedProviders = 0;
+
+  for (const user of users) {
+    if (!user?.fingerprint || !user.publicKey) continue;
+    const existing = store.users.get(user.fingerprint);
+    if (existing) {
+      store.users.set(user.fingerprint, {
+        ...user,
+        privateKey: existing.privateKey,
+      });
+      continue;
+    }
+    store.users.set(user.fingerprint, {
+      fingerprint: user.fingerprint,
+      publicKey: user.publicKey,
+    });
+    addedUsers++;
+  }
+
+  for (const provider of providers) {
+    if (!provider?.fingerprint || !provider.name) continue;
+    if (!store.providers.has(provider.fingerprint)) addedProviders++;
+    store.providers.set(provider.fingerprint, provider);
+    store.slugToFingerprint.set(provider.slug, provider.fingerprint);
+  }
 
   for (const record of attestations) {
     if (!record?.signature || !record.to) continue;
@@ -684,5 +718,10 @@ export async function importLedger(
   }
 
   await commit(store);
-  return { attestations: addedAttestations, packets: addedPackets };
+  return {
+    attestations: addedAttestations,
+    packets: addedPackets,
+    users: addedUsers,
+    providers: addedProviders,
+  };
 }

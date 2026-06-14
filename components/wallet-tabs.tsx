@@ -8,6 +8,7 @@ const TABS = [
   { href: "/wallet", label: "Records" },
   { href: "/wallet/packets", label: "Packets" },
   { href: "/wallet/issue", label: "Issue credential" },
+  { href: "/wallet/verify", label: "Verify" },
   { href: "/wallet/identity", label: "Edit profile" },
 ];
 

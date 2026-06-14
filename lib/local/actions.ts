@@ -70,7 +70,7 @@ export async function issueCredentialAction(input: IssueCredentialActionInput) {
         facts: (input.facts ?? []).filter((f) => f.label.trim() && f.value.trim()),
       },
     });
-    return { ok: true as const, credentialId: credential.id };
+    return { ok: true as const, credentialId: credential.id, credential };
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not issue credential." };
   }

@@ -9,7 +9,9 @@ import {
     Briefcase,
     CalendarCheck,
     Plus,
+    Send,
     ShieldCheck,
+    Upload,
     Users,
 } from "lucide-react";
 import * as React from "react";
@@ -18,7 +20,7 @@ import { FilterChips } from "./filter-chips";
 import { MetricCard } from "./metric-card";
 import { SectionHeader } from "./section-header";
 import { TimelineItem } from "./timeline-item";
-import { Button } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 import { Dialog } from "./ui/dialog";
 import { TextAreaField } from "./ui/field";
 
@@ -36,6 +38,7 @@ export function ResidentDashboard({
   const [noteText, setNoteText] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [copiedFingerprint, setCopiedFingerprint] = React.useState(false);
+  const [shareNotice, setShareNotice] = React.useState<string | null>(null);
   const importRef = React.useRef<HTMLInputElement>(null);
 
   async function copyFingerprint() {
@@ -50,15 +53,46 @@ export function ResidentDashboard({
 
   async function handleImportLedger(file: File) {
     try {
-      const { attestations, packets } = await importLedgerFile(file);
-      const total = attestations + packets;
+      const { attestations, packets, users, providers } = await importLedgerFile(file);
+      const total = attestations + packets + users + providers;
       alert(
         total > 0
-          ? `Imported ${attestations} attestation${attestations === 1 ? "" : "s"} and ${packets} packet${packets === 1 ? "" : "s"}.`
+          ? `Imported ${attestations} attestation${attestations === 1 ? "" : "s"}, ${packets} packet${packets === 1 ? "" : "s"}, and ${users + providers} signer record${users + providers === 1 ? "" : "s"}.`
           : "No new attestations or packets to import.",
       );
     } catch {
       alert("That file is not a valid Anchor attestation export.");
+    }
+  }
+
+  async function handleShareIssueLink() {
+    if (typeof window === "undefined") return;
+    const providerUrl = new URL("/provider", window.location.origin);
+    providerUrl.searchParams.set("to", resident.fingerprint);
+    const requestUrl = new URL("/wallet/issue", window.location.origin);
+    requestUrl.searchParams.set("url", providerUrl.toString());
+    const url = requestUrl.toString();
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Anchor credential request",
+          text: `${resident.displayName} is requesting a signed Anchor credential.`,
+          url,
+        });
+        setShareNotice("Credential request link opened in your share sheet.");
+        return;
+      } catch {
+        // Fall back to clipboard / prompt below.
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNotice("Credential request link copied.");
+    } catch {
+      window.prompt("Copy this credential request link:", url);
+      setShareNotice("Credential request link ready to copy.");
     }
   }
 
@@ -152,14 +186,32 @@ export function ResidentDashboard({
             description="Newest first. Each entry is signed by the organization that issued it."
           />
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => importRef.current?.click()}
-            >
-              <Plus className="size-4" aria-hidden />
-              Add credentials
-            </Button>
+            <details className="group relative">
+              <summary className="list-none">
+                <span className={buttonVariants("secondary", "md")}>
+                  <Plus className="size-4" aria-hidden />
+                  Add credentials
+                </span>
+              </summary>
+              <div className="liquid-glass absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-card p-1 shadow-[0_18px_48px_rgba(43,42,38,0.14)]">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-[0.65rem] px-3 py-2 text-left text-sm font-medium text-ink hover:bg-white/60"
+                  onClick={() => importRef.current?.click()}
+                >
+                  <Upload className="size-4 text-accent" aria-hidden />
+                  Upload file
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-[0.65rem] px-3 py-2 text-left text-sm font-medium text-ink hover:bg-white/60"
+                  onClick={handleShareIssueLink}
+                >
+                  <Send className="size-4 text-accent" aria-hidden />
+                  Send link
+                </button>
+              </div>
+            </details>
             <BuildPacketButton residentId={resident.slug} credentials={credentials} />
             <input
               ref={importRef}
@@ -174,6 +226,9 @@ export function ResidentDashboard({
             />
           </div>
         </div>
+        {shareNotice ? (
+          <p className="mt-3 text-sm font-medium text-accent-ink">{shareNotice}</p>
+        ) : null}
         <div className="mt-4">
           <FilterChips active={filter} onChange={setFilter} counts={counts} />
         </div>
