@@ -40,19 +40,25 @@ export function isValidEmail(value: string): boolean {
 
 export function getAppBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) return configured.replace(/\/$/, "");
+  if (configured) return normalizeBaseUrl(configured);
 
   const production = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (production) {
-    return production.startsWith("http")
-      ? production.replace(/\/$/, "")
-      : `https://${production.replace(/\/$/, "")}`;
+    return normalizeBaseUrl(
+      production.startsWith("http") ? production : `https://${production}`,
+    );
   }
 
   const vercel = process.env.VERCEL_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/\/$/, "")}`;
+  if (vercel) return normalizeBaseUrl(`https://${vercel}`);
 
   return "http://localhost:3000";
+}
+
+function normalizeBaseUrl(value: string): string {
+  const trimmed = value.trim().replace(/\/$/, "");
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }
 
 function sharePacketHtml(input: SendSharePacketEmailInput): string {

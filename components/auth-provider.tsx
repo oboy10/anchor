@@ -23,7 +23,7 @@ interface AuthContextValue {
   /** The active, unlocked account, or null when signed out. */
   active: AccountMeta | null;
   loading: boolean;
-  createAccount: (label: string, password: string) => Promise<AccountMeta>;
+  createAccount: (label: string, password: string, email?: string) => Promise<AccountMeta>;
   unlock: (fingerprint: string, password: string) => Promise<void>;
   switchTo: (fingerprint: string) => Promise<void>;
   signOut: () => void;
@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     accounts,
     active,
     loading,
-    createAccount: (label, password) => createAccount({ label, password }),
+    createAccount: (label, password, email) =>
+      createAccount({ label, password, email }),
     unlock: unlockAccount,
     switchTo: switchAccount,
     signOut: signOutAccount,

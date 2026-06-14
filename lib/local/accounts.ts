@@ -33,6 +33,8 @@ export interface AccountMeta {
   vault: Vault;
   verifiedEmail?: string;
   verifiedPhone?: string;
+  /** Email entered at sign-up, awaiting verification. */
+  pendingEmail?: string;
   /** Default issuer type applied to credentials this identity signs. */
   issuerType?: IssuerType;
 }
@@ -156,6 +158,7 @@ async function activate(fingerprint: Fingerprint): Promise<void> {
 export async function createAccount(input: {
   label: string;
   password: string;
+  email?: string;
 }): Promise<AccountMeta> {
   if (input.password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
@@ -164,12 +167,14 @@ export async function createAccount(input: {
   const seedHex = bytesToHex(seed);
   const user = await userFromPrivateSeed(hexToBytes(seedHex));
   const vault = await encryptSeed(seedHex, input.password);
+  const email = input.email?.trim().toLowerCase();
   const meta: AccountMeta = {
     fingerprint: user.fingerprint,
     publicKey: user.publicKey,
     label: input.label.trim() || "My account",
     createdAt: new Date().toISOString(),
     vault,
+    ...(email ? { pendingEmail: email } : {}),
   };
 
   const accounts = readAccounts();
@@ -301,6 +306,7 @@ export function markVerified(
           ...a,
           verifiedEmail: attrs.email ?? a.verifiedEmail,
           verifiedPhone: attrs.phone ?? a.verifiedPhone,
+          pendingEmail: attrs.email ? undefined : a.pendingEmail,
         }
       : a,
   );

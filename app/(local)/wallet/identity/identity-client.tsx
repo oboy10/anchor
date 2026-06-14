@@ -123,7 +123,16 @@ export function VerifyIdentityContent() {
                 as="h1"
                 serif
                 title="Edit profile"
-                description="Settings for your identity — how you appear when you issue credentials, and the contact details Anchor has vouched for."
+                description="Verify your email first — then set how you appear when you issue credentials."
+              />
+
+              <VerifyIdentityCard
+                fingerprint={query.data.resident.fingerprint}
+                verified={{
+                  ...query.data.verified,
+                  email: active.verifiedEmail ?? query.data.verified.email,
+                  phone: active.verifiedPhone ?? query.data.verified.phone,
+                }}
               />
 
               <section className="rounded-card border border-line bg-surface p-5 shadow-card">
@@ -156,11 +165,6 @@ export function VerifyIdentityContent() {
                   />
                 </div>
               </section>
-
-              <VerifyIdentityCard
-                fingerprint={query.data.resident.fingerprint}
-                verified={query.data.verified}
-              />
             </div>
           ) : null}
         </LocalDataGate>

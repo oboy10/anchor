@@ -11,13 +11,11 @@ import {
 } from "@/lib/sms/twilio";
 import {
   createPendingCode,
-  isRegistered,
   type Channel,
 } from "@/lib/verification/server";
 
 /**
  * Start contact verification: generate a code, store its hash, and deliver it.
- * Blocks contacts already registered to another account (double registration).
  * When delivery is unconfigured (local dev), the code is returned as `devCode`.
  */
 export async function POST(request: Request) {
@@ -45,13 +43,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Enter a valid phone number." }, { status: 400 });
     }
     value = normalized;
-  }
-
-  if (await isRegistered(channel, value)) {
-    return NextResponse.json(
-      { ok: false, error: "That contact is already verified on another account." },
-      { status: 409 },
-    );
   }
 
   // Phone: delegate code generation, delivery, and checking to Twilio Verify.

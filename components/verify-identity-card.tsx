@@ -5,6 +5,7 @@ import { BadgeCheck, Check, Mail, Phone } from "lucide-react";
 import { addVouch } from "@/lib/local/db";
 import { markVerified } from "@/lib/local/accounts";
 import type { Attestation, Fingerprint } from "@/types";
+import { EmailVerificationFlow } from "./email-verification-flow";
 import { SectionHeader } from "./section-header";
 import { FormField } from "./ui/field";
 import { Button } from "./ui/button";
@@ -149,13 +150,20 @@ export function VerifyIdentityCard({ fingerprint, verified }: VerifyIdentityCard
         </InlineNotice>
       ) : null}
 
-      {step === "enter" ? (
+      {channel === "email" ? (
+        <div className="mt-4">
+          <EmailVerificationFlow
+            fingerprint={fingerprint}
+            initialEmail={verified.email ?? ""}
+          />
+        </div>
+      ) : channel === "phone" && step === "enter" ? (
         <form className="mt-4 space-y-3" onSubmit={sendCode}>
           <FormField
-            label={channel === "email" ? "Email address" : "Phone number"}
-            type={channel === "email" ? "email" : "tel"}
-            inputMode={channel === "email" ? "email" : "tel"}
-            placeholder={channel === "email" ? "you@example.com" : "(555) 123-4567"}
+            label="Phone number"
+            type="tel"
+            inputMode="tel"
+            placeholder="(555) 123-4567"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             required
@@ -165,7 +173,7 @@ export function VerifyIdentityCard({ fingerprint, verified }: VerifyIdentityCard
             {pending ? "Sending…" : "Send verification code"}
           </Button>
         </form>
-      ) : (
+      ) : channel === "phone" ? (
         <form className="mt-4 space-y-3" onSubmit={confirmCode}>
           {notice ? (
             <p className="text-sm text-ink-muted">{notice}</p>
@@ -196,7 +204,7 @@ export function VerifyIdentityCard({ fingerprint, verified }: VerifyIdentityCard
             </Button>
           </div>
         </form>
-      )}
+      ) : null}
 
       {step === "enter" && notice ? (
         <p className="mt-3 flex items-center gap-1.5 text-sm text-accent">

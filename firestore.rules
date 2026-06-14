@@ -8,7 +8,7 @@ rules_version = '2';
  * server-side collections (all Admin SDK only, no client access):
  *   - registeredEmails — SHA-256 email hashes
  *   - pendingVerifications — short-lived verification codes (hashed)
- *   - registeredIdentities — SHA-256 email/phone hashes (anti double-register)
+ *   - registeredIdentities — SHA-256 email/phone hashes (legacy; unused)
  *
  * Writes to that collection go through the Admin SDK (server-side), which
  * bypasses these rules; clients are denied all direct access.
@@ -25,6 +25,18 @@ service cloud.firestore {
     }
 
     match /registeredIdentities/{hash} {
+      allow read, write: if false;
+    }
+
+    match /contactDirectory/{hash} {
+      allow read, write: if false;
+    }
+
+    match /credentialDeliveries/{token} {
+      allow read, write: if false;
+    }
+
+    match /credentialRequests/{token} {
       allow read, write: if false;
     }
 

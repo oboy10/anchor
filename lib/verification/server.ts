@@ -7,27 +7,20 @@ import "server-only";
  * contact ever lands in Firestore:
  *  - pending codes: hash(channel:value) → { codeHash, expiresAt }
  *
- * Registered identities are never recorded in Firestore. Uniqueness (one
- * phone/email → one account, no double registration) is enforced through a
- * hashtable of SHA-256 identity hashes, persisted to a local JSON file on disk
- * so the guarantee survives restarts. The file holds only opaque hashes — no
- * plaintext contact and no identity for who registered.
+ * Registered identities are tracked in contactDirectory (email/phone → fingerprint)
+ * for credential delivery. The same contact may be verified on multiple local
+ * accounts; delivery routes to the account that verified most recently.
  *
  * When Firebase Admin is unconfigured (local dev), an in-memory fallback keeps
  * the pending-code flow working within a single server process.
  */
 import { createHash, randomInt } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { getAdminFirestore, isFirebaseAdminConfigured } from "@/lib/firebase/admin";
 
 export type Channel = "email" | "phone";
 
 const PENDING_COLLECTION = "pendingVerifications";
 const CODE_TTL_MS = 10 * 60 * 1000;
-const REGISTERED_HASHES_PATH =
-  process.env.REGISTERED_HASHES_PATH ??
-  join(".data", "registered-hashes.json");
 
 function identityHash(channel: Channel, value: string): string {
   return createHash("sha256")
@@ -45,44 +38,6 @@ export function generateCode(): string {
 
 // In-memory fallback for pending codes (single process only).
 const memPending = new Map<string, { codeHash: string; expiresAt: number }>();
-
-// Hashtable guaranteeing uniqueness of registered phone/email hashes, backed by
-// a JSON file on disk so it survives restarts. Lazily loaded on first use.
-let registeredHashes: Set<string> | null = null;
-
-function loadRegisteredHashes(): Set<string> {
-  if (registeredHashes) return registeredHashes;
-  try {
-    const raw = readFileSync(
-      /*turbopackIgnore: true*/ REGISTERED_HASHES_PATH,
-      "utf8",
-    );
-    const parsed = JSON.parse(raw) as unknown;
-    registeredHashes = new Set(Array.isArray(parsed) ? (parsed as string[]) : []);
-  } catch {
-    // Missing or unreadable file → start empty.
-    registeredHashes = new Set<string>();
-  }
-  return registeredHashes;
-}
-
-function persistRegisteredHashes(): void {
-  mkdirSync(/*turbopackIgnore: true*/ dirname(REGISTERED_HASHES_PATH), {
-    recursive: true,
-  });
-  writeFileSync(
-    /*turbopackIgnore: true*/ REGISTERED_HASHES_PATH,
-    JSON.stringify([...loadRegisteredHashes()]),
-    "utf8",
-  );
-}
-
-export async function isRegistered(
-  channel: Channel,
-  value: string,
-): Promise<boolean> {
-  return loadRegisteredHashes().has(identityHash(channel, value));
-}
 
 export async function createPendingCode(
   channel: Channel,
@@ -121,14 +76,4 @@ export async function consumeCode(
   if (entry.expiresAt < Date.now() || entry.codeHash !== expected) return false;
   memPending.delete(h);
   return true;
-}
-
-export async function recordRegistered(
-  channel: Channel,
-  value: string,
-): Promise<void> {
-  // Track in the on-disk hashtable only — never written to Firestore, so the
-  // server records no identity for who has registered.
-  loadRegisteredHashes().add(identityHash(channel, value));
-  persistRegisteredHashes();
 }

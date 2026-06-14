@@ -9,11 +9,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/field";
 import { InlineNotice } from "@/components/ui/inline-notice";
 import { useAuth } from "@/components/auth-provider";
+import { EmailVerificationFlow } from "@/components/email-verification-flow";
+import type { AccountMeta } from "@/lib/local/accounts";
 import {
-    deleteAccount,
-    isUnlocked,
-    renameAccount,
-    type AccountMeta,
+  deleteAccount,
+  isUnlocked,
+  renameAccount,
 } from "@/lib/local/accounts";
 import { exportAccountFile, importAccountsFile } from "@/lib/local/portable";
 
@@ -177,23 +178,33 @@ function CreateAccountDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  createAccount: (label: string, password: string) => Promise<unknown>;
+  createAccount: (label: string, password: string, email?: string) => Promise<AccountMeta>;
 }) {
+  const [step, setStep] = React.useState<"account" | "verify">("account");
+  const [created, setCreated] = React.useState<AccountMeta | null>(null);
   const [label, setLabel] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPw, setConfirmPw] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
   function reset() {
+    setStep("account");
+    setCreated(null);
     setLabel("");
+    setEmail("");
     setPassword("");
     setConfirmPw("");
     setError(null);
     setPending(false);
   }
 
-  async function submit() {
+  async function submitAccount() {
+    if (!email.trim()) {
+      setError("Enter your email address.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -205,9 +216,10 @@ function CreateAccountDialog({
     setPending(true);
     setError(null);
     try {
-      await createAccount(label, password);
-      reset();
-      onClose();
+      const meta = await createAccount(label, password, email);
+      setCreated(meta);
+      setStep("verify");
+      setPending(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create account.");
       setPending(false);
@@ -221,10 +233,14 @@ function CreateAccountDialog({
         reset();
         onClose();
       }}
-      title="Create account"
-      description="Your identity is an Ed25519 keypair, encrypted with this password and stored only in this browser. There is no recovery if you lose the password."
+      title={step === "verify" ? "Verify your email" : "Create account"}
+      description={
+        step === "verify"
+          ? "Confirm your email so organizations can send you credentials directly."
+          : "Your identity is an Ed25519 keypair, encrypted with this password and stored only in this browser."
+      }
       footer={
-        <>
+        step === "verify" ? (
           <Button
             type="button"
             variant="secondary"
@@ -233,36 +249,66 @@ function CreateAccountDialog({
               onClose();
             }}
           >
-            Cancel
+            Done
           </Button>
-          <Button type="button" disabled={pending} onClick={submit}>
-            {pending ? "Creating…" : "Create account"}
-          </Button>
-        </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                reset();
+                onClose();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" disabled={pending} onClick={submitAccount}>
+              {pending ? "Creating…" : "Create account"}
+            </Button>
+          </>
+        )
       }
     >
-      <div className="space-y-4">
-        <FormField
-          label="Account name"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="My account"
+      {step === "verify" && created ? (
+        <EmailVerificationFlow
+          fingerprint={created.fingerprint}
+          initialEmail={email.trim().toLowerCase()}
+          lockEmail
         />
-        <FormField
-          label="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          hint="At least 8 characters."
-        />
-        <FormField
-          label="Confirm password"
-          type="password"
-          value={confirmPw}
-          onChange={(e) => setConfirmPw(e.target.value)}
-          error={error ?? undefined}
-        />
-      </div>
+      ) : (
+        <div className="space-y-4">
+          <FormField
+            label="Account name"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="My account"
+          />
+          <FormField
+            label="Email address"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            hint="Required — used to receive credentials."
+            required
+          />
+          <FormField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            hint="At least 8 characters."
+          />
+          <FormField
+            label="Confirm password"
+            type="password"
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+            error={error ?? undefined}
+          />
+        </div>
+      )}
     </Dialog>
   );
 }

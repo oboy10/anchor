@@ -7,18 +7,17 @@ import {
   normalizePhoneNumber,
 } from "@/lib/sms/twilio";
 import { issueIdentityVouch } from "@/lib/anchor/verifier";
+import { registerContactDirectory } from "@/lib/firebase/contact-directory";
 import {
   consumeCode,
-  isRegistered,
-  recordRegistered,
   type Channel,
 } from "@/lib/verification/server";
 
 /**
- * Confirm a verification code. On success: record the contact hash (preventing
- * future double registration) and issue a signed identity vouch from the Anchor
- * verifier wallet to the user (spec.md §4). Returns the signed attestation for
- * the client to store in its local ledger.
+ * Confirm a verification code. On success: map the contact to this account's
+ * fingerprint (for credential delivery) and issue a signed identity vouch from
+ * the Anchor verifier wallet to the user (spec.md §4). Returns the signed
+ * attestation for the client to store in its local ledger.
  */
 export async function POST(request: Request) {
   let body: { channel?: string; value?: string; code?: string; fingerprint?: string };
@@ -53,13 +52,6 @@ export async function POST(request: Request) {
     value = normalized;
   }
 
-  if (await isRegistered(channel, value)) {
-    return NextResponse.json(
-      { ok: false, error: "That contact is already verified on another account." },
-      { status: 409 },
-    );
-  }
-
   let approved: boolean;
   if (channel === "phone" && isVerifyConfigured()) {
     const result = await checkPhoneVerification(value, body.code);
@@ -77,7 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
-  await recordRegistered(channel, value);
+  await registerContactDirectory(channel, value, body.fingerprint);
 
   const vouch = await issueIdentityVouch(
     body.fingerprint,

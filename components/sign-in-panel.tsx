@@ -4,10 +4,12 @@ import { KeyRound, Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "./auth-provider";
+import { EmailVerificationFlow } from "./email-verification-flow";
 import { SectionHeader } from "./section-header";
 import { Button } from "./ui/button";
 import { FormField } from "./ui/field";
 import { InlineNotice } from "./ui/inline-notice";
+import type { AccountMeta } from "@/lib/local/accounts";
 
 /**
  * Sign-in surface for local keypair accounts: create a new password-protected
@@ -17,6 +19,11 @@ export function SignInPanel() {
   const { accounts, createAccount, unlock } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
+  const nextPath = params.get("next");
+  const redirectTo =
+    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+      ? nextPath
+      : "/wallet";
   const startInCreate = params.get("new") === "1" || accounts.length === 0;
   const [mode, setMode] = useState<"create" | "unlock">(
     startInCreate ? "create" : "unlock",
@@ -46,12 +53,12 @@ export function SignInPanel() {
 
       {mode === "create" ? (
         <CreateAccountForm
-          onDone={() => router.push("/wallet")}
+          onDone={() => router.push(redirectTo)}
           createAccount={createAccount}
         />
       ) : (
         <UnlockForm
-          onDone={() => router.push("/wallet")}
+          onDone={() => router.push(redirectTo)}
           unlock={unlock}
           accounts={accounts}
         />
@@ -92,17 +99,24 @@ function CreateAccountForm({
   createAccount,
 }: {
   onDone: () => void;
-  createAccount: (label: string, password: string) => Promise<unknown>;
+  createAccount: (label: string, password: string, email?: string) => Promise<AccountMeta>;
 }) {
+  const [step, setStep] = useState<"account" | "verify">("account");
+  const [created, setCreated] = useState<AccountMeta | null>(null);
   const [label, setLabel] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  async function submitAccount(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!email.trim()) {
+      setError("Enter your email address.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -113,8 +127,9 @@ function CreateAccountForm({
     }
     setPending(true);
     try {
-      await createAccount(label, password);
-      onDone();
+      const meta = await createAccount(label, password, email);
+      setCreated(meta);
+      setStep("verify");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create account.");
     } finally {
@@ -122,8 +137,29 @@ function CreateAccountForm({
     }
   }
 
+  if (step === "verify" && created) {
+    return (
+      <div className="space-y-4">
+        <InlineNotice tone="calm" title="Verify your email">
+          Confirm your email so organizations can send you signed credentials directly.
+          You can skip this step, but you won&apos;t receive credentials by email until
+          you verify.
+        </InlineNotice>
+        <EmailVerificationFlow
+          fingerprint={created.fingerprint}
+          initialEmail={email.trim().toLowerCase()}
+          lockEmail
+          onVerified={() => onDone()}
+        />
+        <Button type="button" variant="ghost" className="w-full" onClick={onDone}>
+          Skip for now
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <form className="space-y-4" onSubmit={submit}>
+    <form className="space-y-4" onSubmit={submitAccount}>
       <InlineNotice tone="calm" title="A new keypair is generated on this device">
         Your private key is encrypted with this password and never leaves your
         browser. There is no recovery if you lose it — keep the password safe.
@@ -134,6 +170,17 @@ function CreateAccountForm({
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         autoComplete="name"
+      />
+      <FormField
+        label="Email address"
+        type="email"
+        inputMode="email"
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        hint="Required — used to receive credentials from organizations."
+        autoComplete="email"
+        required
       />
       <FormField
         label="Password"

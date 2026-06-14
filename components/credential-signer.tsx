@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Download } from "lucide-react";
+import { Mail } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "./auth-provider";
-import { signCredentialAction } from "@/lib/local/actions";
-import { exportCredentialFile } from "@/lib/local/portable";
+import { sendCredentialByEmailAction } from "@/lib/local/actions";
 import { CredentialCard } from "./credential-card";
 import { SectionHeader } from "./section-header";
 import { FormField, SelectField, TextAreaField } from "./ui/field";
@@ -19,32 +18,31 @@ import {
   type IssuerType,
 } from "@/types";
 
-/**
- * Sign a credential for any fingerprint with the active account's key and
- * export it as a binary file. The recipient imports it into their wallet with
- * "Add credentials". The target fingerprint can be typed or autofilled from a
- * `?to=<fingerprint>` URL parameter.
- */
-function fingerprintFromNestedUrl(raw: string | null): string {
-  if (!raw || typeof window === "undefined") return "";
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.origin !== window.location.origin) return "";
-    return parsed.searchParams.get("to") ?? parsed.searchParams.get("fingerprint") ?? "";
-  } catch {
-    return "";
-  }
+interface LoadedRequest {
+  token: string;
+  status: string;
+  requesterName: string;
+  requesterFingerprint: string;
+  message?: string;
+  expiresAt: string;
 }
 
+/**
+ * Sign a credential and deliver it by email. The recipient opens a link to add
+ * it to their wallet — no file upload required.
+ */
 export function CredentialSigner() {
   const { active } = useAuth();
   const params = useSearchParams();
-  const presetTo =
-    params.get("to") ??
-    params.get("fingerprint") ??
-    fingerprintFromNestedUrl(params.get("url"));
+  const presetEmail = params.get("email") ?? "";
+  const requestToken = params.get("request")?.trim() ?? "";
 
-  const [toFingerprint, setToFingerprint] = React.useState(presetTo);
+  const [loadedRequest, setLoadedRequest] = React.useState<LoadedRequest | null>(null);
+  const [requestLoading, setRequestLoading] = React.useState(!!requestToken);
+  const [requestError, setRequestError] = React.useState<string | null>(null);
+
+  const [toEmail, setToEmail] = React.useState(presetEmail);
+  const [toFingerprint, setToFingerprint] = React.useState<string | undefined>();
   const [issuerName, setIssuerName] = React.useState("");
   const issuerType: IssuerType = active?.issuerType ?? "caseworker";
   const [credentialType, setCredentialType] =
@@ -59,10 +57,59 @@ export function CredentialSigner() {
   const [error, setError] = React.useState<string | null>(null);
 
   const fromFingerprint = active?.fingerprint ?? "";
+  const lockedRecipient = !!loadedRequest && loadedRequest.status === "pending";
+
+  React.useEffect(() => {
+    if (!requestToken) return;
+    let activeEffect = true;
+    setRequestLoading(true);
+    setRequestError(null);
+    fetch(`/api/credential/request/${encodeURIComponent(requestToken)}`)
+      .then(async (res) => {
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          request?: LoadedRequest;
+        };
+        if (!activeEffect) return;
+        if (!res.ok || !data.ok || !data.request) {
+          setRequestError(data.error ?? "Could not load this credential request.");
+          setRequestLoading(false);
+          return;
+        }
+        const req = data.request;
+        if (req.status === "expired") {
+          setRequestError("This credential request has expired.");
+          setRequestLoading(false);
+          return;
+        }
+        if (req.status === "fulfilled") {
+          setRequestError("This request was already fulfilled.");
+          setRequestLoading(false);
+          return;
+        }
+        setLoadedRequest(req);
+        setToFingerprint(req.requesterFingerprint);
+        if (req.message) {
+          setSummary((prev) => prev || (req.message ?? ""));
+        }
+        setRequestLoading(false);
+      })
+      .catch(() => {
+        if (!activeEffect) return;
+        setRequestError("Could not load this credential request.");
+        setRequestLoading(false);
+      });
+    return () => {
+      activeEffect = false;
+    };
+  }, [requestToken]);
+
+  const previewRecipient = toFingerprint ?? "0000000000000000";
 
   const previewCredential = {
     id: "preview",
-    residentFingerprint: toFingerprint,
+    residentFingerprint: previewRecipient,
     issuerFingerprint: fromFingerprint,
     issuerName: issuerName || active?.label || "You",
     issuerType,
@@ -78,19 +125,20 @@ export function CredentialSigner() {
     status: "active" as const,
     attestation: {
       from: fromFingerprint,
-      to: toFingerprint,
+      to: previewRecipient,
       properties: [],
       nonce: "preview",
       signature: "",
     },
   };
 
-  async function handleSign() {
+  async function handleSend() {
     setPending(true);
     setError(null);
     setSuccess(null);
-    const result = await signCredentialAction({
-      toFingerprint,
+    const result = await sendCredentialByEmailAction({
+      toEmail: lockedRecipient ? undefined : toEmail,
+      toFingerprint: lockedRecipient ? toFingerprint : undefined,
       issuerName,
       issuerType,
       credentialType,
@@ -98,26 +146,52 @@ export function CredentialSigner() {
       summary,
       metric: metric || undefined,
       facts: factLabel && factValue ? [{ label: factLabel, value: factValue }] : [],
+      requestToken: lockedRecipient ? requestToken : undefined,
     });
     setPending(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    await exportCredentialFile(result.attestation, title);
+    if (result.autoDelivered) {
+      setSuccess(
+        `Credential signed and delivered to ${loadedRequest?.requesterName ?? "the requester"}. It will appear in their wallet automatically.`,
+      );
+      return;
+    }
     setSuccess(
-      "Credential signed and downloaded. Send the file to the recipient — they import it with “Add credentials”.",
+      result.emailSent
+        ? `Credential signed and emailed to ${toEmail.trim()}. They can open the link to add it to their wallet.`
+        : `Credential signed. Delivery link: ${result.acceptUrl ?? "see server response"}`,
     );
   }
+
+  const signInHref = requestToken
+    ? `/sign-in?next=${encodeURIComponent(`/credential/sign?request=${requestToken}`)}`
+    : "/sign-in";
 
   if (!active) {
     return (
       <InlineNotice tone="info" title="Sign in to issue credentials">
         Signing a credential uses your account&apos;s private key.{" "}
-        <Link href="/sign-in" className="font-medium text-accent hover:text-accent-hover">
+        <Link href={signInHref} className="font-medium text-accent hover:text-accent-hover">
           Sign in
         </Link>{" "}
         to continue.
+      </InlineNotice>
+    );
+  }
+
+  if (requestLoading) {
+    return (
+      <p className="text-sm text-ink-muted">Loading credential request…</p>
+    );
+  }
+
+  if (requestError) {
+    return (
+      <InlineNotice tone="warning" title="Request unavailable">
+        {requestError}
       </InlineNotice>
     );
   }
@@ -127,12 +201,22 @@ export function CredentialSigner() {
       <SectionHeader
         as="h1"
         serif
-        title="Sign a credential"
-        description="Attest a positive, verifiable entry for someone by their identity fingerprint, then export it as a file for them to import."
+        title={lockedRecipient ? "Sign requested credential" : "Issue a credential"}
+        description={
+          lockedRecipient
+            ? `${loadedRequest?.requesterName} asked you to sign a credential. Fill in the details below — it will be delivered to their wallet when you sign.`
+            : "Enter the recipient's verified email. Anchor signs the credential and emails them a link to add it to their wallet."
+        }
       />
 
+      {lockedRecipient && loadedRequest?.message ? (
+        <InlineNotice tone="info" title="Their note">
+          &ldquo;{loadedRequest.message}&rdquo;
+        </InlineNotice>
+      ) : null}
+
       {success ? (
-        <InlineNotice tone="calm" title="Credential signed">
+        <InlineNotice tone="calm" title="Credential sent">
           {success}
         </InlineNotice>
       ) : null}
@@ -142,18 +226,28 @@ export function CredentialSigner() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            handleSign();
+            handleSend();
           }}
         >
-          <FormField
-            label="Recipient fingerprint"
-            hint="The 16-character identity fingerprint of the person you're crediting."
-            value={toFingerprint}
-            onChange={(e) => setToFingerprint(e.target.value)}
-            placeholder="a1b2c3d4e5f60718"
-            className="font-mono"
-            required
-          />
+          {lockedRecipient ? (
+            <div className="rounded-lg border border-line bg-surface-sunken px-4 py-3">
+              <p className="text-sm font-medium text-ink">Recipient</p>
+              <p className="text-sm text-ink-muted">
+                {loadedRequest?.requesterName} · fingerprint{" "}
+                <span className="font-mono text-xs">{loadedRequest?.requesterFingerprint}</span>
+              </p>
+            </div>
+          ) : (
+            <FormField
+              label="Recipient email"
+              type="email"
+              hint="They must have verified this email on their Anchor account."
+              value={toEmail}
+              onChange={(e) => setToEmail(e.target.value)}
+              placeholder="resident@example.com"
+              required
+            />
+          )}
 
           <FormField
             label="Signing as"
@@ -228,10 +322,19 @@ export function CredentialSigner() {
           <div className="pt-2">
             <Button
               type="submit"
-              disabled={pending || !title.trim() || !summary.trim() || !toFingerprint.trim()}
+              disabled={
+                pending ||
+                !title.trim() ||
+                !summary.trim() ||
+                (!lockedRecipient && !toEmail.trim())
+              }
             >
-              <Download className="size-4" aria-hidden />
-              {pending ? "Signing…" : "Sign & export file"}
+              <Mail className="size-4" aria-hidden />
+              {pending
+                ? "Signing…"
+                : lockedRecipient
+                  ? "Sign & deliver credential"
+                  : "Sign & email credential"}
             </Button>
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -243,12 +346,13 @@ export function CredentialSigner() {
             <CredentialCard credential={previewCredential} verified={false} />
           ) : (
             <p className="text-sm text-ink-muted">
-              Fill in the form to see how the credential will appear once imported.
+              Fill in the form to see how the credential will appear in the recipient&apos;s wallet.
             </p>
           )}
           <InlineNotice tone="info" className="mt-4">
-            The exported file contains a single Ed25519-signed attestation. Nothing
-            is stored on a server — you hand the file to the recipient directly.
+            {lockedRecipient
+              ? "When you sign, the credential is delivered directly to their wallet — no extra step for them."
+              : "The signed credential is stored briefly on Firebase until the recipient accepts it. Nothing is added to their wallet until they open the email link."}
           </InlineNotice>
         </div>
       </div>

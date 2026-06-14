@@ -307,3 +307,286 @@ export async function signCredentialAction(input: SignCredentialActionInput) {
   const attestation: Attestation = { ...signed, credentialId, issueDate } as Attestation;
   return { ok: true as const, attestation, credentialId };
 }
+
+export interface SendCredentialByEmailActionInput {
+  toEmail?: string;
+  toFingerprint?: string;
+  issuerName: string;
+  issuerType: IssuerType;
+  credentialType: CredentialType;
+  title: string;
+  summary: string;
+  metric?: string;
+  facts?: { label: string; value: string }[];
+  expiresInDays?: number;
+  /** When fulfilling a resident's credential request. */
+  requestToken?: string;
+}
+
+/**
+ * Resolve recipient email, sign a credential, store delivery in Firestore, and
+ * email an accept link. Replaces manual file handoff.
+ */
+export async function sendCredentialByEmailAction(input: SendCredentialByEmailActionInput) {
+  let resolveFingerprint = input.toFingerprint?.trim().toLowerCase();
+  let email = input.toEmail?.trim().toLowerCase() ?? "";
+
+  if (!resolveFingerprint) {
+    if (!email) {
+      return { ok: false as const, error: "Recipient email is required." };
+    }
+    if (!isValidEmail(email)) {
+      return { ok: false as const, error: "Enter a valid recipient email." };
+    }
+    try {
+      const res = await fetch("/api/credential/resolve-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json()) as { ok?: boolean; fingerprint?: string; error?: string };
+      if (!res.ok || !data.ok || !data.fingerprint) {
+        return {
+          ok: false as const,
+          error: data.error ?? "Could not resolve that email to an Anchor account.",
+        };
+      }
+      resolveFingerprint = data.fingerprint;
+    } catch {
+      return { ok: false as const, error: "Could not reach the server to resolve email." };
+    }
+  }
+
+  if (!resolveFingerprint || !/^[0-9a-f]{16}$/.test(resolveFingerprint)) {
+    return { ok: false as const, error: "Invalid recipient identity." };
+  }
+
+  const signed = await signCredentialAction({
+    toFingerprint: resolveFingerprint,
+    issuerName: input.issuerName,
+    issuerType: input.issuerType,
+    credentialType: input.credentialType,
+    title: input.title,
+    summary: input.summary,
+    metric: input.metric,
+    facts: input.facts,
+  });
+  if (!signed.ok) return signed;
+
+  const account = getActiveAccount();
+  const issuer = account ? getUnlockedUser(account.fingerprint) : null;
+  const users =
+    issuer
+      ? [{ fingerprint: issuer.fingerprint, publicKey: issuer.publicKey }]
+      : [];
+
+  const { getProviderByFingerprint } = await import("./db");
+  const provider = account
+    ? await getProviderByFingerprint(account.fingerprint)
+    : undefined;
+  const providers = provider ? [provider] : [];
+
+  try {
+    const res = await fetch("/api/credential/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        toEmail: email || undefined,
+        recipientFingerprint: resolveFingerprint,
+        issuerFingerprint: account?.fingerprint,
+        issuerName: input.issuerName.trim() || account?.label || "Someone",
+        title: input.title,
+        summary: input.summary,
+        attestation: signed.attestation,
+        users,
+        providers,
+        expiresInDays: input.expiresInDays ?? 30,
+        requestToken: input.requestToken,
+      }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      acceptUrl?: string;
+      emailSent?: boolean;
+      autoDelivered?: boolean;
+    };
+    if (!res.ok || !data.ok) {
+      return {
+        ok: false as const,
+        error: data.error ?? "Could not send credential by email.",
+        acceptUrl: data.acceptUrl,
+      };
+    }
+    return {
+      ok: true as const,
+      acceptUrl: data.acceptUrl,
+      emailSent: data.emailSent ?? true,
+      autoDelivered: data.autoDelivered ?? false,
+    };
+  } catch {
+    return { ok: false as const, error: "Could not reach the server to send email." };
+  }
+}
+
+export interface RequestCredentialActionInput {
+  issuerEmail: string;
+  requesterName: string;
+  message?: string;
+}
+
+/** Ask an organization or contact to sign a credential for your wallet. */
+export async function requestCredentialAction(input: RequestCredentialActionInput) {
+  const account = getActiveAccount();
+  if (!account) {
+    return { ok: false as const, error: "Sign in to request a credential." };
+  }
+  const requesterEmail = account.verifiedEmail?.trim().toLowerCase();
+  if (!requesterEmail) {
+    return {
+      ok: false as const,
+      error: "Verify your email first so issuers can send credentials back to you.",
+    };
+  }
+  const issuerEmail = input.issuerEmail.trim().toLowerCase();
+  if (!isValidEmail(issuerEmail)) {
+    return { ok: false as const, error: "Enter a valid email for the person or organization." };
+  }
+
+  try {
+    const res = await fetch("/api/credential/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requesterFingerprint: account.fingerprint,
+        requesterEmail,
+        requesterName: input.requesterName.trim() || account.label,
+        issuerEmail,
+        message: input.message?.trim() || undefined,
+      }),
+    });
+    let data: { ok?: boolean; error?: string; emailSent?: boolean };
+    try {
+      data = (await res.json()) as typeof data;
+    } catch {
+      return {
+        ok: false as const,
+        error: res.ok ? "Invalid server response." : `Server error (${res.status}). Try again.`,
+      };
+    }
+    if (!res.ok || !data.ok) {
+      return { ok: false as const, error: data.error ?? "Could not send the request." };
+    }
+    return { ok: true as const, emailSent: data.emailSent ?? true };
+  } catch {
+    return { ok: false as const, error: "Could not reach the server. Is the app running?" };
+  }
+}
+
+export interface AcceptCredentialDeliveryActionInput {
+  token: string;
+  attestation: Attestation;
+  users?: import("@/types").User[];
+  providers?: import("@/types").Provider[];
+}
+
+/** Import a delivered credential into the local wallet and mark server delivery accepted. */
+export async function acceptCredentialDeliveryAction(
+  input: AcceptCredentialDeliveryActionInput,
+) {
+  const account = getActiveAccount();
+  if (!account) {
+    return { ok: false as const, error: "Sign in to accept this credential." };
+  }
+  const email = account.verifiedEmail?.trim().toLowerCase();
+  if (!email) {
+    return {
+      ok: false as const,
+      error: "Verify your email before accepting credentials sent by email.",
+    };
+  }
+
+  const { importLedger } = await import("./db");
+  const added = await importLedger(
+    [input.attestation],
+    [],
+    input.users ?? [],
+    input.providers ?? [],
+  );
+  if (added.attestations === 0) {
+    // Already in wallet — still mark accepted on server
+  }
+
+  try {
+    const res = await fetch(
+      `/api/credential/delivery/${encodeURIComponent(input.token)}/accept`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fingerprint: account.fingerprint,
+          email,
+        }),
+      },
+    );
+    const data = (await res.json()) as { ok?: boolean; error?: string };
+    if (!res.ok || !data.ok) {
+      return { ok: false as const, error: data.error ?? "Could not confirm delivery." };
+    }
+  } catch {
+    return { ok: false as const, error: "Could not reach the server." };
+  }
+
+  return { ok: true as const, added: added.attestations };
+}
+
+/** Pull pending email deliveries from Firebase and import into the local wallet. */
+export async function syncCredentialInboxAction() {
+  const account = getActiveAccount();
+  if (!account) {
+    return { ok: false as const, error: "Sign in to sync credentials." };
+  }
+  const email = account.verifiedEmail?.trim().toLowerCase();
+  if (!email) {
+    return {
+      ok: false as const,
+      error: "Verify your email to receive credentials by email.",
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      fingerprint: account.fingerprint,
+      email,
+    });
+    const res = await fetch(`/api/credential/inbox?${params}`);
+    const data = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      deliveries?: Array<{
+        token: string;
+        attestation: Attestation;
+        users?: import("@/types").User[];
+        providers?: import("@/types").Provider[];
+      }>;
+    };
+    if (!res.ok || !data.ok) {
+      return { ok: false as const, error: data.error ?? "Could not load inbox." };
+    }
+
+    let imported = 0;
+    for (const item of data.deliveries ?? []) {
+      const result = await acceptCredentialDeliveryAction({
+        token: item.token,
+        attestation: item.attestation,
+        users: item.users,
+        providers: item.providers,
+      });
+      if (result.ok && result.added > 0) imported += result.added;
+    }
+
+    return { ok: true as const, imported, total: data.deliveries?.length ?? 0 };
+  } catch {
+    return { ok: false as const, error: "Could not reach the server." };
+  }
+}
