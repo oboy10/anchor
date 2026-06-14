@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Newsreader } from "next/font/google";
+import { Geist, Instrument_Serif, Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,19 +16,36 @@ const newsreader = Newsreader({
   style: "normal",
 });
 
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://milpitas-hacks-red.vercel.app"),
+  metadataBase: new URL("https://anchor.lahs.win"),
   title: {
-    default: "Anchor — a resident-controlled verified record",
+    default: "Anchor — Verified reputation you own",
     template: "%s · Anchor",
   },
   description:
-    "Anchor is a resident-owned trust and reputation wallet. Shelters, landlords, employers, and caseworkers issue verified positive credentials. The resident decides what to share.",
+    "A resident-controlled verified reputation wallet. Portable, positive credentials you share on your own terms — not a credit score, not a background check.",
   applicationName: "Anchor",
+  icons: {
+    icon: "/anchor-logo.png",
+    apple: "/anchor-logo.png",
+  },
   openGraph: {
-    title: "Anchor — a resident-controlled verified record",
+    title: "Anchor — Verified reputation you own",
     description:
-      "Verified positive credentials, controlled by the resident. Not a score.",
+      "Portable credentials for people rebuilding after homelessness. Cryptographically signed. Resident-controlled.",
     type: "website",
   },
   robots: { index: true, follow: true },
@@ -42,11 +59,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${newsreader.variable} h-full antialiased`}
+      className={`${inter.variable} ${newsreader.variable} ${geistSans.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-canvas text-ink">
-        {children}
-      </body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
