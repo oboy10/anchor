@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
-/** Anchor wordmark with a small, restrained anchor mark. */
+/** Anchor wordmark with the product mark. */
 export function Brand({
   className,
   href = "/",
@@ -18,23 +18,16 @@ export function Brand({
         className,
       )}
     >
-      <span className="flex size-7 items-center justify-center rounded-md bg-accent text-white">
-        <svg viewBox="0 0 24 24" className="size-4" aria-hidden fill="none">
-          <path
-            d="M12 3 5 6v5.5c0 4 2.8 6.8 7 9 4.2-2.2 7-5 7-9V6l-7-3Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <path
-            d="m9 12 2 2 4-4"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size 10 KB UI mark; avoids next/image client and optimizer overhead in every header. */}
+      <img
+        src="/anchor_logo.png"
+        alt=""
+        width={32}
+        height={32}
+        className="size-8 rounded-md object-contain"
+        loading="lazy"
+        decoding="async"
+      />
       <span className="text-[17px] font-semibold tracking-tight">Anchor</span>
     </Link>
   );

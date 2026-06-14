@@ -76,7 +76,7 @@ function sharePacketHtml(input: SendSharePacketEmailInput): string {
               <td style="padding:28px 28px 20px;">
                 <table role="presentation" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td style="width:32px;height:32px;background:#2f6b58;border-radius:8px;text-align:center;vertical-align:middle;color:#ffffff;font-size:16px;">&#9875;</td>
+                    <td style="width:32px;height:32px;background:#19807f;border-radius:8px;text-align:center;vertical-align:middle;color:#ffffff;font-size:16px;">&#9875;</td>
                     <td style="padding-left:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:18px;font-weight:600;color:#2b2a26;">Anchor</td>
                   </tr>
                 </table>
@@ -95,7 +95,7 @@ function sharePacketHtml(input: SendSharePacketEmailInput): string {
                 ${introBlock}
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
                   <tr>
-                    <td style="border-radius:8px;background:#2f6b58;">
+                    <td style="border-radius:8px;background:#19807f;">
                       <a href="${escapeHtml(input.verifyUrl)}" style="display:inline-block;padding:12px 20px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
                         View record
                       </a>

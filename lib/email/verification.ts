@@ -39,7 +39,7 @@ function codeEmailHtml(code: string): string {
           <tr><td style="padding:28px;">
             <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b2a26;">Anchor verification code</p>
             <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#6f6b62;">Enter this code to verify your email. It expires in 10 minutes.</p>
-            <p style="margin:0;font-size:34px;font-weight:700;letter-spacing:8px;color:#2f6b58;">${code}</p>
+            <p style="margin:0;font-size:34px;font-weight:700;letter-spacing:8px;color:#19807f;">${code}</p>
           </td></tr>
         </table>
       </td></tr>
