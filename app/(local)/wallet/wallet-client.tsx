@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
 import { ResidentDashboard } from "@/components/resident-dashboard";
 import { WalletTabs } from "@/components/wallet-tabs";
 import { LocalDataGate } from "@/components/local-data-gate";
@@ -10,18 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useLocalQuery } from "@/lib/local/hooks";
 import { getActiveResident, getLedger } from "@/lib/local/db";
 
-export default function WalletPage() {
-  return (
-    <AppShell
-      context="Wallet"
-      links={[{ href: "/provider", label: "Provider" }]}
-    >
-      <WalletContent />
-    </AppShell>
-  );
-}
-
-function WalletContent() {
+export function WalletContent() {
   const { active, loading } = useAuth();
   const router = useRouter();
 

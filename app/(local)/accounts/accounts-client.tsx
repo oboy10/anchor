@@ -1,13 +1,14 @@
 "use client";
 
-import { AppShell } from "@/components/app-shell";
-import { useAuth } from "@/components/auth-provider";
-import { EmptyState } from "@/components/empty-state";
+import * as React from "react";
+import { Download, Plus, Upload } from "lucide-react";
 import { SectionHeader } from "@/components/section-header";
+import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/field";
 import { InlineNotice } from "@/components/ui/inline-notice";
+import { useAuth } from "@/components/auth-provider";
 import {
     deleteAccount,
     isUnlocked,
@@ -15,10 +16,8 @@ import {
     type AccountMeta,
 } from "@/lib/local/accounts";
 import { exportAccountFile, importAccountsFile } from "@/lib/local/portable";
-import { Download, Plus, Upload } from "lucide-react";
-import * as React from "react";
 
-export default function AccountsPage() {
+export function AccountsContent() {
   const { accounts, active, createAccount } = useAuth();
   const importRef = React.useRef<HTMLInputElement>(null);
 
@@ -50,10 +49,7 @@ export default function AccountsPage() {
   }
 
   return (
-    <AppShell
-      context="Accounts"
-      links={[{ href: "/wallet", label: "Wallet" }]}
-    >
+    <>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHeader
           as="h1"
@@ -170,7 +166,7 @@ export default function AccountsPage() {
           onClose={() => setRenaming(null)}
         />
       ) : null}
-    </AppShell>
+    </>
   );
 }
 

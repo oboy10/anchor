@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
 import { WalletTabs } from "@/components/wallet-tabs";
 import { PacketsList } from "@/components/packets-list";
 import { BuildPacketButton } from "@/components/build-packet-button";
@@ -17,7 +16,7 @@ import {
   listPacketsForResident,
 } from "@/lib/local/db";
 
-export default function PacketsPage() {
+export function PacketsContent() {
   const { active, loading } = useAuth();
   const router = useRouter();
 
@@ -38,7 +37,7 @@ export default function PacketsPage() {
   if (!loading && !active) return null;
 
   return (
-    <AppShell context="Wallet">
+    <>
       <WalletTabs />
       <div className="mt-8">
         <LocalDataGate
@@ -71,6 +70,6 @@ export default function PacketsPage() {
           ) : null}
         </LocalDataGate>
       </div>
-    </AppShell>
+    </>
   );
 }

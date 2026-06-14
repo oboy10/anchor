@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
 import { WalletTabs } from "@/components/wallet-tabs";
 import { VerifyIdentityCard } from "@/components/verify-identity-card";
 import { LocalDataGate } from "@/components/local-data-gate";
@@ -87,7 +86,7 @@ function ProfileForm({ initial }: { initial: { name: string; description: string
   );
 }
 
-export default function EditProfilePage() {
+export function VerifyIdentityContent() {
   const { active, loading } = useAuth();
   const router = useRouter();
 
@@ -109,7 +108,7 @@ export default function EditProfilePage() {
   if (!loading && !active) return null;
 
   return (
-    <AppShell context="Wallet">
+    <>
       <WalletTabs />
       <div className="mt-8">
         <LocalDataGate
@@ -166,6 +165,6 @@ export default function EditProfilePage() {
           ) : null}
         </LocalDataGate>
       </div>
-    </AppShell>
+    </>
   );
 }
