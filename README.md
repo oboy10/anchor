@@ -100,7 +100,7 @@ npm run firebase:cleanup
 | `/accounts` | Manage accounts (create, rename, export, import, delete) |
 | `/wallet/issue` | Issue/sign a credential for a fingerprint, export as a file |
 | `/verify` | Public verification (opens a resident's share link) |
-| `/admin` | Seed + inspect ledger |
+| `/admin` | Inspect ledger |
 
 ## Deploy on Vercel
 

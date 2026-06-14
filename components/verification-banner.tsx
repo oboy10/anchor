@@ -40,7 +40,7 @@ export function VerificationBanner({ result, className }: VerificationBannerProp
           {ok ? (
             <>
               All {result.entriesChecked} signed attestations verify against their
-              issuers' Ed25519 public keys and target this resident's fingerprint.
+              issuers&apos; Ed25519 public keys and target this resident&apos;s fingerprint.
             </>
           ) : (
             <>

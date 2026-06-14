@@ -43,7 +43,7 @@ export default function AdminPage() {
         <SectionHeader
           as="h1"
           serif
-          title="Demo administration"
+          title="Administration"
           description="Inspect Ed25519 identities, signed attestations, and verification state."
         />
         <AdminControls />
