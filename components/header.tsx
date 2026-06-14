@@ -19,7 +19,7 @@ export function Header({ links = [], context, trailing, className }: HeaderProps
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur",
+        "sticky top-0 z-30 border-b border-white/50 bg-canvas/70 shadow-[0_12px_36px_rgba(43,42,38,0.06)] backdrop-blur-xl",
         className,
       )}
     >
@@ -43,7 +43,7 @@ export function Header({ links = [], context, trailing, className }: HeaderProps
                   <Link
                     key={l.href}
                     href={l.href}
-                    className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:bg-white/55 hover:text-ink"
                   >
                     {l.label}
                   </Link>

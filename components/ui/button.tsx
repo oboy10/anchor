@@ -5,15 +5,15 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 select-none";
+  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 select-none";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-hover",
+  primary: "bg-accent text-white shadow-[0_14px_34px_rgba(25,128,127,0.24)] hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-[0_18px_42px_rgba(25,128,127,0.28)]",
   secondary:
-    "bg-surface text-ink border border-line-strong hover:bg-surface-sunken",
-  ghost: "text-ink hover:bg-surface-sunken",
+    "liquid-glass-subtle text-ink hover:-translate-y-0.5 hover:border-white/80 hover:bg-white/55",
+  ghost: "text-ink hover:bg-white/45",
   danger:
-    "bg-surface text-danger border border-danger/30 hover:bg-danger-soft",
+    "bg-surface text-danger border border-danger/30 hover:-translate-y-0.5 hover:bg-danger-soft",
 };
 
 // Comfortable touch targets: md is 44px tall.
