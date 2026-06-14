@@ -1,148 +1,125 @@
 # Anchor
 
-A resident-controlled verified reputation wallet. Shelters, landlords, employers, and caseworkers issue **signed Ed25519 attestations**. Residents choose what to share via time-limited packets.
+**A resident-controlled verified record — not a score someone else assigns.**
 
-## Quick start
+Anchor is a local-first reputation wallet built for [Milpitas Hacks](https://github.com/oboy10/milpitas-hacks). Shelters, landlords, employers, and caseworkers issue **cryptographically signed credentials**. Residents own the timeline, choose what to share, and hand reviewers a time-limited packet — nothing more.
 
-```bash
-npm install
-cp .env.example .env.local   # add Firebase values
-npm run dev
+**Live demo:** [anchor.lahs.win](https://anchor.lahs.win)
+---
+
+## Why Anchor exists
+
+People rebuilding stability often have positive records scattered across programs, landlords, and employers — but no portable way to prove them. Background checks and opaque scores hide context and take control away from the person the record is about.
+
+Anchor flips that:
+
+- **Residents hold the wallet** — Ed25519 identity, password-protected, stored only in the browser.
+- **Issuers sign facts, not ratings** — “12 months on-time rent,” not a hidden number.
+- **Sharing is selective** — Residents pick credentials, add optional notes, and send a link that expires.
+- **Verification is public** — Anyone with a share link can confirm signatures without an account.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph issue [Issue]
+    Org[Organization]
+    Org -->|sign| Cred[Signed credential]
+  end
+
+  subgraph wallet [Resident wallet]
+    Cred --> Timeline[Credential timeline]
+    Timeline --> Packet[Share packet]
+  end
+
+  subgraph review [Review]
+    Packet --> Link[Time-limited link]
+    Link --> Verifier[Landlord / employer / counselor]
+  end
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+1. **Organizations issue** — Sign a credential by email, offline file, or in response to a resident request.
+2. **Residents curate** — Review the timeline, add personal notes, build packets.
+3. **Reviewers verify** — Open a share link; Anchor checks Ed25519 signatures and shows only what was selected.
 
-## Firebase setup
+---
 
-### 1. Client config (browser)
+## Features
 
-Add to `.env.local`:
+| Feature | Description |
+| --- | --- |
+| **Local-first wallet** | All credentials, packets, and keys live in `localStorage` / `sessionStorage` on the resident's device. |
+| **Email credentials** | Issuers send to a verified email; credentials sync into the resident's wallet automatically. |
+| **Request by email** | Residents request a credential from an organization; the issuer gets a sign link. |
+| **Offline credentials** | Issuers download a `.anchor` file; residents import it — no server required. |
+| **Share packets** | Bundle selected credentials into a link (or email/SMS) with an expiry date. |
+| **Public verify** | `/verify` validates signatures and packet contents for third parties. |
+| **Identity verification** | Email (Resend) and phone (Twilio) verification with signed identity vouches. |
+| **Account portability** | Export/import `.anchor` archives and encrypted account vaults. |
 
-```bash
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-```
+---
 
-### 2. Admin config (server / Firestore)
+## Architecture
 
-From Firebase Console → Project settings → Service accounts → **Generate new private key**:
+Anchor is **local-first**. The server never holds wallet data.
 
-```bash
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...@....iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-```
+## Credential delivery
 
-Or set `GOOGLE_APPLICATION_CREDENTIALS=./service-account.json` for local dev.
+Three paths coexist:
 
-When Admin credentials are present, the server can store **hashed** email/phone registries in Firestore (see collections below).
+### Email (online)
 
-Without Admin credentials, verification and email registry fall back to in-memory mode for local dev.
+1. Resident verifies email at sign-up or on Edit profile.
+2. Resident clicks **Request credential** or issuer enters recipient email on Issue.
+3. Issuer signs → credential lands in resident inbox → wallet auto-syncs.
 
-### 3. Optional email and SMS delivery
+### Offline (no server)
 
-Share packets work as copyable links without provider credentials. To send packet
-links by email, configure Resend:
+1. Resident opens **Offline credential → Copy issue link**.
+2. Issuer opens link, signs, downloads `.anchor` file.
+3. Resident uploads the file under **Offline credential → Upload credential file**.
 
-```bash
-RESEND_API_KEY=
-RESEND_FROM=Anchor <hello@yourdomain.com>
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+### Share packets
 
-To send packet links and Anchor attestation requests by SMS, configure Twilio
-with a Messaging Service:
+1. Resident selects credentials → **Build packet**.
+2. Send via copy link, email, SMS, or download `.anchor` archive.
+3. Reviewer opens `/verify?token=…` — no account needed.
 
-```bash
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_MESSAGING_SERVICE_SID=
-```
-
-### 4. Deploy Firestore rules & indexes
-
-```bash
-npm install -g firebase-tools
-firebase login
-firebase use anchor-8bdff   # your project id
-firebase deploy --only firestore:rules,firestore:indexes
-```
-
-Rules live in `firestore.rules`. See that file for the security model.
+---
 
 ## Firestore collections
 
-The app is **local-first** — wallet data lives in the browser. Firestore only holds hashed identifiers (no plaintext PII):
+Server-side data is minimal and hashed where possible:
 
 | Collection | Purpose |
-|---|---|
-| `registeredEmails/{hash}` | SHA-256 of registered emails (future encrypted backup lookup) |
-| `pendingVerifications/{hash}` | Short-lived verification codes (hashed), auto-expire |
-| `registeredIdentities/{hash}` | SHA-256 of verified email/phone (prevent double registration) |
-
-Legacy collections from earlier builds (`users`, `attestations`, `sharePackets`, etc.) are unused. Remove with:
-
-```bash
-npm run firebase:cleanup
-```
-
-## Routes
-
-| Route | Description |
-|---|---|
-| `/` | Landing |
-| `/sign-in` | Create or unlock a local account |
-| `/wallet` | Resident wallet |
-| `/accounts` | Manage accounts (create, rename, export, import, delete) |
-| `/wallet/issue` | Issue/sign a credential for a fingerprint, export as a file |
-| `/verify` | Public verification (opens a resident's share link) |
-| `/admin` | Inspect ledger |
-
-## Deploy on Vercel
-
-Production: [milpitas-hacks-red.vercel.app](https://milpitas-hacks-red.vercel.app)
-
-1. Import repo from GitHub
-2. Add environment variables (Project → Settings → Environment Variables):
-
-| Variable | Notes |
-|---|---|
-| All `NEXT_PUBLIC_FIREBASE_*` | From Firebase Console |
-| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Service account — enables Firestore |
-| `RESEND_API_KEY` | From [Resend](https://resend.com/api-keys) — share packet emails |
-| `RESEND_FROM` | e.g. `Anchor <hello@yourdomain.com>` — must use a [verified domain](https://resend.com/domains) |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | From Twilio Console — SMS delivery |
-| `TWILIO_MESSAGING_SERVICE_SID` | Twilio Messaging Service SID used as the sender |
-| `NEXT_PUBLIC_APP_URL` | `https://milpitas-hacks-red.vercel.app` |
-
-Or sync from your local `.env.local` after `vercel login` and `vercel link`:
-
-```bash
-npm run vercel:env
-vercel --prod
-```
-
-3. Redeploy after adding env vars — server actions need them at runtime. Pushing to `main` also triggers a Vercel production deploy.
-
-**Vercel `FIREBASE_PRIVATE_KEY`:** paste the full key from the service account JSON `private_key` field. Either paste it as one line with `\n` between lines (same as `.env.local`), or paste the multiline PEM directly — do not add extra quotes in the Vercel UI.
-
-Without Admin credentials, the app runs on an **in-memory demo store**. Without `RESEND_API_KEY` or Twilio credentials, share packets still work but provider delivery is not sent.
-
-### Resend setup (custom domain)
-
-1. Add your domain at [Resend → Domains](https://resend.com/domains) and add the DNS records they provide
-2. Create an API key at [Resend → API Keys](https://resend.com/api-keys)
-3. Set `RESEND_FROM=Anchor <hello@yourdomain.com>` using an address on that verified domain
-4. Add `RESEND_API_KEY`, `RESEND_FROM`, and `NEXT_PUBLIC_APP_URL` to `.env.local` / Vercel, then redeploy
+| --- | --- |
+| `registeredEmails/{hash}` | SHA-256 email hashes (backup registry) |
+| `pendingVerifications/{hash}` | Hashed verification codes (~10 min TTL) |
+| `contactDirectory/{hash}` | Verified email/phone → wallet fingerprint |
+| `credentialDeliveries/{token}` | Pending signed credentials for email inbox |
+| `credentialRequests/{token}` | Resident → issuer request fulfill links |
 
 ## Crypto model
 
-- **Identity:** Ed25519 keypair; fingerprint = `SHA-512(public_key)[0:8]`
-- **Record:** Signed attestation `{ from, to, properties, nonce }` + Ed25519 signature
-- Provider private keys for signing: `ANCHOR_PROVIDER_KEYS` env (JSON) or demo keys in dev
+- **Identity:** Ed25519 keypair; fingerprint = first 8 bytes of `SHA-512(publicKey)` as hex.
+- **Credential:** Signed attestation `{ from, to, properties, nonce }` + signature.
+- **Vault:** Account seed encrypted with scrypt + AES-256-GCM (password-protected).
+- **Portable files:** `.anchor` binary archives (attestations + public signer keys).
 
-Private keys are **never** stored in Firestore.
+Private keys never touch Firestore. Tampering with an attestation breaks signature verification.
+
+Protocol details: [`lib/anchor/protocol/README.md`](lib/anchor/protocol/README.md)
+
+## Status
+
+Built during **Milpitas Hacks** as a working prototype, now open-sourced for learning and iteration. This is not a certified identity provider or legal record system — treat it as a demonstration of resident-owned, verifiable credentials with minimal server trust.
+
+**Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Firebase Admin · Resend · Twilio · WebCrypto (Ed25519)
+
+---
+
+## License
+
+No license file is included yet. Contact the repository owner before using this code in production.
