@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function SignInPage() {
   return (
-    <AppShell context="Sign in" links={[{ href: "/demo", label: "Demo" }]}>
+    <AppShell context="Sign in" links={[{ href: "/wallet", label: "Wallet" }]}>
       <Suspense fallback={null}>
         <SignInPanel />
       </Suspense>

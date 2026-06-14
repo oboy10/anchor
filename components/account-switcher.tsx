@@ -1,13 +1,20 @@
 "use client";
 
-import * as React from "react";
+import { cn } from "@/lib/cn";
+import { shortFingerprint } from "@/lib/format";
+import { isUnlocked } from "@/lib/local/accounts";
+import {
+    Check,
+    ChevronDown,
+    Lock,
+    Plus,
+    Settings,
+    UserRound
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, LogOut, Plus, UserRound } from "lucide-react";
+import * as React from "react";
 import { useAuth } from "./auth-provider";
-import { isUnlocked } from "@/lib/local/accounts";
-import { shortFingerprint } from "@/lib/format";
-import { cn } from "@/lib/cn";
 
 /**
  * Header control that ties the account switcher to sign-in/out. Switches
@@ -143,14 +150,23 @@ export function AccountSwitcher() {
               <Plus className="size-4 text-ink-muted" aria-hidden />
               Create new account
             </Link>
+            <Link
+              href="/accounts"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-ink hover:bg-surface-sunken"
+            >
+              <Settings className="size-4 text-ink-muted" aria-hidden />
+              Manage accounts
+            </Link>
             <button
               type="button"
               role="menuitem"
               onClick={handleSignOut}
               className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
             >
-              <LogOut className="size-4" aria-hidden />
-              Sign out
+              <Lock className="size-4" aria-hidden />
+              Lock account
             </button>
           </div>
         </div>

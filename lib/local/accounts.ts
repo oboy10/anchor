@@ -13,6 +13,7 @@
  * AuthProvider + account switcher.
  */
 import { bytesToHex, hexToBytes, randomBytes } from "@/lib/crypto/bytes";
+import type { PortableAccount } from "@/lib/crypto/archive";
 import { userFromPrivateSeed } from "@/lib/crypto/user";
 import { decryptSeed, encryptSeed, type Vault } from "@/lib/crypto/vault";
 import { registerLocalIdentity, setActiveResident } from "./db";
@@ -206,6 +207,69 @@ export async function switchAccount(fingerprint: Fingerprint): Promise<void> {
 export function signOut(): void {
   if (isBrowser()) {
     sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+  }
+  emit();
+}
+
+/**
+ * Merge imported accounts into the local store. Existing accounts (matched by
+ * fingerprint) are left untouched; only new identities are added and registered
+ * as wallets. Returns the number of accounts added. Does not unlock anything —
+ * each imported account must still be unlocked with its password.
+ */
+export async function importAccounts(accounts: PortableAccount[]): Promise<number> {
+  const existing = readAccounts();
+  const known = new Set(existing.map((a) => a.fingerprint));
+  const added: AccountMeta[] = [];
+
+  for (const account of accounts) {
+    if (!account?.fingerprint || !account.publicKey || !account.vault) continue;
+    if (known.has(account.fingerprint)) continue;
+    known.add(account.fingerprint);
+    added.push(account as AccountMeta);
+  }
+
+  if (added.length === 0) return 0;
+  writeAccounts([...existing, ...added]);
+  for (const account of added) {
+    await registerLocalIdentity(account, account.label);
+  }
+  emit();
+  return added.length;
+}
+
+/** Rename a stored account (and its wallet display name). */
+export async function renameAccount(
+  fingerprint: Fingerprint,
+  label: string,
+): Promise<void> {
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error("Account name cannot be empty.");
+  const account = getAccount(fingerprint);
+  if (!account) throw new Error("Account not found.");
+  writeAccounts(
+    readAccounts().map((a) =>
+      a.fingerprint === fingerprint ? { ...a, label: trimmed } : a,
+    ),
+  );
+  await registerLocalIdentity(account, trimmed);
+  emit();
+}
+
+/**
+ * Permanently remove a stored account from this device. Locks it first (drops
+ * its session seed) and clears the active pointer if it was signed in. The
+ * ledger/wallet data in lib/local/db is left untouched.
+ */
+export function deleteAccount(fingerprint: Fingerprint): void {
+  writeAccounts(readAccounts().filter((a) => a.fingerprint !== fingerprint));
+  const session = readSession();
+  if (session[fingerprint]) {
+    delete session[fingerprint];
+    writeSession(session);
+  }
+  if (isBrowser() && localStorage.getItem(ACTIVE_ACCOUNT_KEY) === fingerprint) {
     localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
   }
   emit();

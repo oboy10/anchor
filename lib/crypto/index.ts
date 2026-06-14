@@ -5,8 +5,16 @@
 
 export { canonicalize } from "./canonical";
 export {
+  decodeArchive,
+  encodeArchive,
+  PACKET,
+  type AnchorArchive,
+  type PortableAccount,
+} from "./archive";
+export {
   base64UrlToBytes,
   bytesToHex,
+  bytesToUtf8,
   concatBytes,
   hexToBytes,
   randomBytes,

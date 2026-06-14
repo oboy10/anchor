@@ -36,6 +36,10 @@ export function utf8ToBytes(text: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+export function bytesToUtf8(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes);
+}
+
 export function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const total = parts.reduce((n, p) => n + p.length, 0);
   const out = new Uint8Array(total);

@@ -620,3 +620,50 @@ export async function importData(json: string): Promise<void> {
   loadPromise = Promise.resolve(store);
   await commit(store);
 }
+
+/** The active resident's signed attestations and share packets, for export. */
+export async function exportActiveLedger(): Promise<{
+  attestations: Attestation[];
+  packets: SharePacket[];
+}> {
+  const resident = await getActiveResident();
+  if (!resident) return { attestations: [], packets: [] };
+  const store = await load();
+  const attestations = [...(store.attestations.get(resident.fingerprint) ?? [])];
+  const packets = [...store.packets.values()].filter(
+    (p) => p.residentFingerprint === resident.fingerprint,
+  );
+  return { attestations, packets };
+}
+
+/**
+ * Merge imported attestations and packets into the local store, de-duplicated
+ * by signature / token. Existing records are left untouched. Returns counts of
+ * newly added records.
+ */
+export async function importLedger(
+  attestations: Attestation[],
+  packets: SharePacket[],
+): Promise<{ attestations: number; packets: number }> {
+  const store = await load();
+  let addedAttestations = 0;
+  let addedPackets = 0;
+
+  for (const record of attestations) {
+    if (!record?.signature || !record.to) continue;
+    const list = store.attestations.get(record.to) ?? [];
+    if (list.some((a) => a.signature === record.signature)) continue;
+    list.push(record as AttestationDoc);
+    store.attestations.set(record.to, list);
+    addedAttestations++;
+  }
+
+  for (const packet of packets) {
+    if (!packet?.token || store.packets.has(packet.token)) continue;
+    store.packets.set(packet.token, packet);
+    addedPackets++;
+  }
+
+  await commit(store);
+  return { attestations: addedAttestations, packets: addedPackets };
+}

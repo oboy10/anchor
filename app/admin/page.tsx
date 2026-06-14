@@ -37,10 +37,7 @@ export default function AdminPage() {
   return (
     <AppShell
       context="Admin"
-      links={[
-        { href: "/demo", label: "Demo" },
-        { href: "/wallet", label: "Wallet" },
-      ]}
+      links={[{ href: "/wallet", label: "Wallet" }]}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <SectionHeader

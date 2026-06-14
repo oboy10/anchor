@@ -19,7 +19,6 @@ export default function ProviderPage() {
     <AppShell
       context="Provider"
       links={[
-        { href: "/demo", label: "Demo" },
         { href: "/wallet", label: "Wallet" },
         { href: "/admin", label: "Admin" },
       ]}

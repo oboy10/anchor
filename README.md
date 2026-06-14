@@ -95,8 +95,9 @@ npm run firebase:cleanup
 | Route | Description |
 |---|---|
 | `/` | Landing |
-| `/demo` | Role selector |
-| `/resident/r_marcus` | Resident wallet |
+| `/sign-in` | Create or unlock a local account |
+| `/wallet` | Resident wallet |
+| `/accounts` | Manage accounts (create, rename, export, import, delete) |
 | `/provider` | Issue credentials |
 | `/verify` | Public verification (opens a resident's share link) |
 | `/admin` | Seed + inspect ledger |

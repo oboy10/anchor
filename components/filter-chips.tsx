@@ -25,7 +25,7 @@ export function FilterChips({ active, onChange, counts }: FilterChipsProps) {
     <div
       role="group"
       aria-label="Filter credentials by type"
-      className="flex flex-wrap gap-2"
+      className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {ORDER.map((type) => {
         const label = type === "all" ? "All" : CREDENTIAL_TYPE_LABELS[type];
@@ -38,7 +38,7 @@ export function FilterChips({ active, onChange, counts }: FilterChipsProps) {
             aria-pressed={selected}
             onClick={() => onChange(type)}
             className={cn(
-              "h-9 rounded-full border px-3.5 text-sm font-medium transition-colors",
+              "h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-sm font-medium transition-colors",
               selected
                 ? "border-accent bg-accent-soft text-accent-ink"
                 : "border-line-strong bg-surface text-ink-muted hover:border-line hover:text-ink",

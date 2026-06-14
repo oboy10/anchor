@@ -11,10 +11,10 @@ export default function LandingPage() {
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 sm:px-6">
           <Brand />
           <Link
-            href="/demo"
+            href="/sign-in"
             className={cn(buttonVariants("secondary", "sm"))}
           >
-            Enter demo
+            Sign in
           </Link>
         </div>
       </header>

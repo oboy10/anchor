@@ -1,48 +1,55 @@
 "use client";
 
-import * as React from "react";
+import { shortFingerprint } from "@/lib/format";
+import { setResidentNoteAction } from "@/lib/local/actions";
+import { importLedgerFile } from "@/lib/local/portable";
+import { summarize } from "@/lib/metrics";
+import type { Credential, CredentialType, Resident } from "@/types";
 import {
-  Briefcase,
-  CalendarCheck,
-  ShieldCheck,
-  Users,
+    Briefcase,
+    CalendarCheck,
+    Plus,
+    ShieldCheck,
+    Users,
 } from "lucide-react";
-import { revokePacketAction, setResidentNoteAction } from "@/lib/local/actions";
+import * as React from "react";
+import { BuildPacketButton } from "./build-packet-button";
 import { FilterChips } from "./filter-chips";
 import { MetricCard } from "./metric-card";
-import { PacketBuilder } from "./packet-builder";
-import { VerifyIdentityCard } from "./verify-identity-card";
 import { SectionHeader } from "./section-header";
 import { TimelineItem } from "./timeline-item";
+import { Button } from "./ui/button";
 import { Dialog } from "./ui/dialog";
 import { TextAreaField } from "./ui/field";
-import { InlineNotice } from "./ui/inline-notice";
-import { Button } from "./ui/button";
-import type { Credential, CredentialType, Resident, SharePacket } from "@/types";
-import { summarize } from "@/lib/metrics";
-import { shortFingerprint } from "@/lib/format";
 
 export interface ResidentDashboardProps {
   resident: Resident;
   credentials: Credential[];
-  packets: SharePacket[];
-  /** Contact attributes already vouched for by Anchor. */
-  verified?: { email?: string; phone?: string };
-  /** Show the verify-contact card (only for the signed-in owner's wallet). */
-  canVerify?: boolean;
 }
 
 export function ResidentDashboard({
   resident,
   credentials,
-  packets,
-  verified = {},
-  canVerify = false,
 }: ResidentDashboardProps) {
   const [filter, setFilter] = React.useState<CredentialType | "all">("all");
   const [noteTarget, setNoteTarget] = React.useState<Credential | null>(null);
   const [noteText, setNoteText] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const importRef = React.useRef<HTMLInputElement>(null);
+
+  async function handleImportLedger(file: File) {
+    try {
+      const { attestations, packets } = await importLedgerFile(file);
+      const total = attestations + packets;
+      alert(
+        total > 0
+          ? `Imported ${attestations} attestation${attestations === 1 ? "" : "s"} and ${packets} packet${packets === 1 ? "" : "s"}.`
+          : "No new attestations or packets to import.",
+      );
+    } catch {
+      alert("That file is not a valid Anchor attestation export.");
+    }
+  }
 
   const summary = summarize(credentials);
   const sorted = [...credentials].sort(
@@ -59,10 +66,6 @@ export function ResidentDashboard({
   for (const c of credentials) {
     if (c.status === "corrected") continue;
     counts[c.credentialType] = (counts[c.credentialType] ?? 0) + 1;
-  }
-
-  async function handleRevoke(token: string) {
-    await revokePacketAction(resident.slug, token);
   }
 
   async function saveNote() {
@@ -82,7 +85,7 @@ export function ResidentDashboard({
           title={`${resident.displayName}'s record`}
           description={
             resident.preferredIntro ??
-            "Your verified credentials, controlled by you. This is not a score."
+            "Your cryptographically verified credentials, controlled by you. You decide what, when, and with whom you want to share."
           }
         />
         {resident.pronouns || resident.city ? (
@@ -90,23 +93,7 @@ export function ResidentDashboard({
             {[resident.pronouns, resident.city].filter(Boolean).join(" · ")}
           </p>
         ) : null}
-        <p className="text-sm text-ink-muted">
-          Identity fingerprint{" "}
-          <code className="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-xs text-ink">
-            {resident.fingerprint}
-          </code>
-        </p>
       </header>
-
-      <InlineNotice tone="calm" title="You stay in control">
-        Anchor holds verified positive credentials from organizations you
-        worked with. You decide what to share, when, and with whom. Nothing here
-        is a credit score or background check result.
-      </InlineNotice>
-
-      {canVerify ? (
-        <VerifyIdentityCard fingerprint={resident.fingerprint} verified={verified} />
-      ) : null}
 
       <section aria-labelledby="summary-heading">
         <h2 id="summary-heading" className="sr-only">
@@ -144,20 +131,37 @@ export function ResidentDashboard({
         </div>
       </section>
 
-      <section className="rounded-card border border-line bg-surface p-5 shadow-card">
-        <PacketBuilder
-          residentId={resident.slug}
-          credentials={credentials}
-          existingPackets={packets}
-          onRevoke={handleRevoke}
-        />
-      </section>
+      <hr className="border-line" />
 
       <section aria-labelledby="timeline-heading">
-        <SectionHeader
-          title="Credential timeline"
-          description="Newest first. Each entry is signed by the organization that issued it."
-        />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader
+            title="Credential timeline"
+            description="Newest first. Each entry is signed by the organization that issued it."
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => importRef.current?.click()}
+            >
+              <Plus className="size-4" aria-hidden />
+              Add credentials
+            </Button>
+            <BuildPacketButton residentId={resident.slug} credentials={credentials} />
+            <input
+              ref={importRef}
+              type="file"
+              accept=".anchor,application/octet-stream"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportLedger(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        </div>
         <div className="mt-4">
           <FilterChips active={filter} onChange={setFilter} counts={counts} />
         </div>
@@ -178,27 +182,6 @@ export function ResidentDashboard({
             ))
           )}
         </div>
-      </section>
-
-      <section aria-labelledby="help-heading" className="border-t border-line pt-8">
-        <SectionHeader
-          title="What this can help with"
-          description="Use your record when you are ready — there is no rush."
-        />
-        <ul className="mt-4 space-y-3 text-[15px] leading-relaxed text-ink-muted">
-          <li>
-            <strong className="font-medium text-ink">Housing applications</strong> — share
-            payment history, good standing, and landlord references with a property manager.
-          </li>
-          <li>
-            <strong className="font-medium text-ink">Job applications</strong> — show
-            training completion and employer references without repeating your story.
-          </li>
-          <li>
-            <strong className="font-medium text-ink">Documentation</strong> — keep a
-            verified record you can reference for credit-building and future opportunities.
-          </li>
-        </ul>
       </section>
 
       <Dialog
