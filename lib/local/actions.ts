@@ -329,7 +329,7 @@ export interface SendCredentialByEmailActionInput {
  */
 export async function sendCredentialByEmailAction(input: SendCredentialByEmailActionInput) {
   let resolveFingerprint = input.toFingerprint?.trim().toLowerCase();
-  let email = input.toEmail?.trim().toLowerCase() ?? "";
+  const email = input.toEmail?.trim().toLowerCase() ?? "";
 
   if (!resolveFingerprint) {
     if (!email) {

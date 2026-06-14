@@ -23,15 +23,18 @@ export function RequestCredentialDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!open) {
-      setIssuerEmail("");
-      setMessage("");
-      setError(null);
-      setSuccess(null);
-      setPending(false);
-    }
-  }, [open]);
+  function reset() {
+    setIssuerEmail("");
+    setMessage("");
+    setError(null);
+    setSuccess(null);
+    setPending(false);
+  }
+
+  function handleClose() {
+    reset();
+    onClose();
+  }
 
   async function handleSubmit() {
     setPending(true);
@@ -57,19 +60,19 @@ export function RequestCredentialDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title="Request a credential"
       description="Enter the email of a landlord, employer, or caseworker. They'll get a link to sign — it lands in your wallet when they're done."
       footer={
         success
           ? (
-            <Button type="button" onClick={onClose}>
+            <Button type="button" onClick={handleClose}>
               Done
             </Button>
           )
           : (
             <>
-              <Button type="button" variant="secondary" onClick={onClose}>
+              <Button type="button" variant="secondary" onClick={handleClose}>
                 Cancel
               </Button>
               <Button

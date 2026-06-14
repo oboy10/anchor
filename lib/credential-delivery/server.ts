@@ -27,9 +27,7 @@ export interface CredentialDeliveryRecord {
   acceptedAt?: string;
 }
 
-interface MemEntry extends CredentialDeliveryRecord {}
-
-const memDeliveries = new Map<string, MemEntry>();
+const memDeliveries = new Map<string, CredentialDeliveryRecord>();
 
 function deliveryToken(): string {
   return createHash("sha256").update(randomBytes(32)).digest("hex").slice(0, 32);
@@ -89,7 +87,9 @@ export async function createCredentialDelivery(
   }
 
   const token = deliveryToken();
-  const ttlMs = (input.expiresInDays ?? 30) * 24 * 60 * 60 * 1000;
+  const ttlMs = input.expiresInDays
+    ? input.expiresInDays * 24 * 60 * 60 * 1000
+    : DEFAULT_TTL_MS;
   const now = Date.now();
   const record: CredentialDeliveryRecord = {
     token,

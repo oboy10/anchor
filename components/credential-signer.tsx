@@ -32,14 +32,23 @@ interface LoadedRequest {
   expiresAt: string;
 }
 
+const FINGERPRINT_PATTERN = /[0-9a-f]{16}/i;
+
+function cleanFingerprint(value: string | null): string {
+  return value?.match(FINGERPRINT_PATTERN)?.[0].toLowerCase() ?? "";
+}
+
 function fingerprintFromNestedUrl(raw: string | null): string {
   if (!raw || typeof window === "undefined") return "";
   try {
     const parsed = new URL(raw, window.location.origin);
     if (parsed.origin !== window.location.origin) return "";
-    return parsed.searchParams.get("to") ?? parsed.searchParams.get("fingerprint") ?? "";
+    return (
+      cleanFingerprint(parsed.searchParams.get("to")) ||
+      cleanFingerprint(parsed.searchParams.get("fingerprint"))
+    );
   } catch {
-    return "";
+    return cleanFingerprint(raw);
   }
 }
 
@@ -52,11 +61,13 @@ export function CredentialSigner() {
   const presetEmail = params.get("email") ?? "";
   const requestToken = params.get("request")?.trim() ?? "";
   const presetTo =
-    params.get("to") ??
-    params.get("fingerprint") ??
+    cleanFingerprint(params.get("to")) ||
+    cleanFingerprint(params.get("fingerprint")) ||
     fingerprintFromNestedUrl(params.get("url"));
   const initialMode: DeliveryMode =
-    params.get("mode") === "offline-credential" ? "offline-credential" : "email";
+    !requestToken && params.get("mode") === "offline-credential"
+      ? "offline-credential"
+      : "email";
 
   const [loadedRequest, setLoadedRequest] = React.useState<LoadedRequest | null>(null);
   const [requestLoading, setRequestLoading] = React.useState(!!requestToken);
@@ -85,9 +96,6 @@ export function CredentialSigner() {
   React.useEffect(() => {
     if (!requestToken) return;
     let activeEffect = true;
-    setRequestLoading(true);
-    setRequestError(null);
-    setDeliveryMode("email");
     fetch(`/api/credential/request/${encodeURIComponent(requestToken)}`)
       .then(async (res) => {
         const data = (await res.json()) as {

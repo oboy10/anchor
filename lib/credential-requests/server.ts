@@ -84,7 +84,9 @@ export async function createCredentialRequest(
   const requesterEmail = input.requesterEmail.trim().toLowerCase();
   const issuerEmail = input.issuerEmail.trim().toLowerCase();
   const token = requestToken();
-  const ttlMs = (input.expiresInDays ?? 14) * 24 * 60 * 60 * 1000;
+  const ttlMs = input.expiresInDays
+    ? input.expiresInDays * 24 * 60 * 60 * 1000
+    : DEFAULT_TTL_MS;
   const now = Date.now();
 
   const trimmedMessage = input.message?.trim();

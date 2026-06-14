@@ -57,10 +57,6 @@ export function EmailVerificationFlow({
   const [pending, setPending] = React.useState(false);
   const [verified, setVerified] = React.useState(false);
 
-  React.useEffect(() => {
-    if (initialEmail) setEmail(initialEmail);
-  }, [initialEmail]);
-
   async function sendCode(e?: React.FormEvent) {
     e?.preventDefault();
     setError(null);

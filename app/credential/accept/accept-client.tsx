@@ -32,18 +32,15 @@ export function AcceptCredentialContent() {
   const token = params.get("token") ?? "";
   const router = useRouter();
   const { active } = useAuth();
+  const missingTokenError = token ? null : "This link is missing a delivery token.";
   const [delivery, setDelivery] = React.useState<DeliveryView | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(!!token);
+  const [error, setError] = React.useState<string | null>(missingTokenError);
   const [accepting, setAccepting] = React.useState(false);
   const [accepted, setAccepted] = React.useState(false);
 
   React.useEffect(() => {
-    if (!token) {
-      setError("This link is missing a delivery token.");
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
     let cancelled = false;
     (async () => {
       try {
