@@ -86,6 +86,22 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.landing-color-field {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(25, 128, 127, 0.13), transparent 28rem),
+    radial-gradient(circle at 82% 42%, rgba(58, 90, 120, 0.12), transparent 30rem),
+    linear-gradient(180deg, rgba(226, 242, 241, 0.46), rgba(253, 252, 249, 0.18) 42%, rgba(245, 237, 217, 0.28));
+}
+
+.wallet-preview-glow {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(25, 128, 127, 0.2), transparent 16rem),
+    radial-gradient(circle at 86% 28%, rgba(58, 90, 120, 0.16), transparent 14rem),
+    radial-gradient(circle at 58% 100%, rgba(138, 101, 22, 0.12), transparent 18rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34)),
+    rgba(253, 252, 249, 0.56);
+}
+
 /* Visible, consistent focus states everywhere. */
 :focus-visible {
   outline: 2px solid var(--ring);

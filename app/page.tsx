@@ -47,8 +47,11 @@ const steps = [
 
 export default function LandingPage() {
   return (
-    <div className="relative flex min-h-full flex-col overflow-hidden">
+    <div className="landing-color-field relative flex min-h-full flex-col overflow-hidden">
       <div className="ambient-grid pointer-events-none absolute inset-x-0 top-0 h-[42rem]" />
+      <div className="pointer-events-none absolute -left-32 top-28 h-80 w-80 rounded-full bg-accent/12 blur-3xl" />
+      <div className="pointer-events-none absolute right-[-10rem] top-[38rem] h-96 w-96 rounded-full bg-info/12 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-40 left-1/2 h-72 w-[34rem] -translate-x-1/2 rounded-full bg-warning/10 blur-3xl" />
 
       <header className="sticky top-0 z-40 border-b border-white/50 bg-canvas/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -73,11 +76,7 @@ export default function LandingPage() {
       <main className="relative z-10 flex-1">
         <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:py-20">
           <div>
-            <div className="liquid-glass-subtle inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-accent-ink">
-              <span className="size-2 rounded-full bg-accent shadow-[0_0_20px_rgba(25,128,127,0.55)]" />
-              Resident-controlled record
-            </div>
-            <h1 className="mt-6 max-w-3xl font-serif text-5xl leading-[0.96] text-ink sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-3xl font-serif text-5xl leading-[0.96] text-ink sm:text-6xl lg:text-7xl">
               A verified record you own, not a score someone else assigns.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-ink-muted">
@@ -109,8 +108,8 @@ export default function LandingPage() {
           </div>
 
           <div className="float-slow relative">
-            <div className="liquid-glass glass-edge rounded-[2rem] p-4 sm:p-5">
-              <div className="relative overflow-hidden rounded-[1.5rem] border border-white/60 bg-surface/72">
+            <div className="liquid-glass glass-edge wallet-preview-glow rounded-[2rem] p-4 sm:p-5">
+              <div className="relative overflow-hidden rounded-[1.5rem] border border-white/60 bg-surface/70">
                 <div className="flex items-center justify-between border-b border-line/70 bg-white/42 px-5 py-4">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
@@ -195,8 +194,9 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="principles" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-12 sm:px-6 sm:pb-20">
-          <div className="grid gap-8 lg:grid-cols-[0.72fr_1fr]">
+        <section id="principles" className="relative mx-auto max-w-6xl scroll-mt-24 px-4 py-12 sm:px-6 sm:pb-20">
+          <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-accent/24 to-transparent sm:inset-x-6" />
+          <div className="grid gap-8 pt-10 lg:grid-cols-[0.72fr_1fr]">
             <div>
               <p className="text-sm font-medium text-accent">What this is not</p>
               <h2 className="mt-3 font-serif text-4xl leading-tight text-ink">
@@ -217,12 +217,6 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-
-      <footer className="relative z-10 border-t border-white/50 bg-canvas/70 py-6 backdrop-blur-xl">
-        <p className="mx-auto max-w-6xl px-4 text-sm text-ink-faint sm:px-6">
-          Local-first build · all data stored locally in your browser · no server-side records except registered-email hashes
-        </p>
-      </footer>
     </div>
   );
 }
