@@ -11,6 +11,17 @@ import { useLocalQuery } from "@/lib/local/hooks";
 import { getActiveResident, getLedger } from "@/lib/local/db";
 
 export default function WalletPage() {
+  return (
+    <AppShell
+      context="Wallet"
+      links={[{ href: "/provider", label: "Provider" }]}
+    >
+      <WalletContent />
+    </AppShell>
+  );
+}
+
+function WalletContent() {
   const { active, loading } = useAuth();
   const router = useRouter();
 
@@ -29,7 +40,7 @@ export default function WalletPage() {
   if (!loading && !active) return null;
 
   return (
-    <AppShell context="Wallet">
+    <>
       <WalletTabs />
       <div className="mt-8">
         <LocalDataGate
@@ -46,6 +57,6 @@ export default function WalletPage() {
           ) : null}
         </LocalDataGate>
       </div>
-    </AppShell>
+    </>
   );
 }
