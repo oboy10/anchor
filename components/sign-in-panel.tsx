@@ -1,9 +1,10 @@
 "use client";
 
-import { KeyRound, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "./auth-provider";
+import { AccountUnlockForm } from "./account-unlock-form";
 import { EmailVerificationFlow } from "./email-verification-flow";
 import { SectionHeader } from "./section-header";
 import { Button } from "./ui/button";
@@ -16,7 +17,7 @@ import type { AccountMeta } from "@/lib/local/accounts";
  * identity, or unlock one already stored on this device. No server-side auth.
  */
 export function SignInPanel() {
-  const { accounts, createAccount, unlock } = useAuth();
+  const { accounts, createAccount, unlock, loading } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const nextPath = params.get("next");
@@ -24,10 +25,26 @@ export function SignInPanel() {
     nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
       ? nextPath
       : "/wallet";
-  const startInCreate = params.get("new") === "1" || accounts.length === 0;
-  const [mode, setMode] = useState<"create" | "unlock">(
-    startInCreate ? "create" : "unlock",
-  );
+  const forceCreate = params.get("new") === "1";
+  const forceUnlock = params.get("unlock") === "1";
+  const [mode, setMode] = useState<"create" | "unlock">("unlock");
+
+  useEffect(() => {
+    if (loading) return;
+    if (forceCreate) {
+      setMode("create");
+      return;
+    }
+    if (forceUnlock) {
+      setMode("unlock");
+      return;
+    }
+    setMode(accounts.length === 0 ? "create" : "unlock");
+  }, [loading, accounts.length, forceCreate, forceUnlock]);
+
+  if (loading) {
+    return <p className="text-sm text-ink-muted">Loading accounts on this device…</p>;
+  }
 
   return (
     <div className="mx-auto max-w-md space-y-8">
@@ -57,7 +74,7 @@ export function SignInPanel() {
           createAccount={createAccount}
         />
       ) : (
-        <UnlockForm
+        <AccountUnlockForm
           onDone={() => router.push(redirectTo)}
           unlock={unlock}
           accounts={accounts}
@@ -203,77 +220,6 @@ function CreateAccountForm({
       <Button type="submit" disabled={pending} className="w-full">
         <Plus className="size-4" aria-hidden />
         {pending ? "Creating…" : "Create account"}
-      </Button>
-    </form>
-  );
-}
-
-function UnlockForm({
-  onDone,
-  unlock,
-  accounts,
-}: {
-  onDone: () => void;
-  unlock: (fingerprint: string, password: string) => Promise<void>;
-  accounts: { fingerprint: string; label: string }[];
-}) {
-  const [fingerprint, setFingerprint] = useState(accounts[0]?.fingerprint ?? "");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
-    try {
-      await unlock(fingerprint, password);
-      onDone();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not unlock account.");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <form className="space-y-4" onSubmit={submit}>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-ink">Account</legend>
-        {accounts.map((a) => (
-          <label
-            key={a.fingerprint}
-            className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm has-[:checked]:border-accent"
-          >
-            <input
-              type="radio"
-              name="account"
-              value={a.fingerprint}
-              checked={fingerprint === a.fingerprint}
-              onChange={() => setFingerprint(a.fingerprint)}
-              className="accent-accent"
-            />
-            <span className="min-w-0">
-              <span className="block truncate font-medium text-ink">{a.label}</span>
-              <span className="block font-mono text-xs text-ink-muted">
-                {a.fingerprint}
-              </span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      <FormField
-        label="Password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
-      <Button type="submit" disabled={pending || !fingerprint} className="w-full">
-        <KeyRound className="size-4" aria-hidden />
-        {pending ? "Unlocking…" : "Unlock account"}
       </Button>
     </form>
   );

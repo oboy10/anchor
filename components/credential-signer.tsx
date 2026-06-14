@@ -5,6 +5,7 @@ import { Download, Mail } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "./auth-provider";
+import { AccountUnlockForm } from "./account-unlock-form";
 import { sendCredentialByEmailAction, signCredentialAction } from "@/lib/local/actions";
 import { exportCredentialFile } from "@/lib/local/portable";
 import { CredentialCard } from "./credential-card";
@@ -46,7 +47,7 @@ function fingerprintFromNestedUrl(raw: string | null): string {
  * Sign a credential for delivery by email or as an offline `.anchor` file.
  */
 export function CredentialSigner() {
-  const { active } = useAuth();
+  const { active, accounts, loading, unlock } = useAuth();
   const params = useSearchParams();
   const presetEmail = params.get("email") ?? "";
   const requestToken = params.get("request")?.trim() ?? "";
@@ -221,17 +222,57 @@ export function CredentialSigner() {
   }
 
   const signInHref = requestToken
-    ? `/sign-in?next=${encodeURIComponent(`/credential/sign?request=${requestToken}`)}`
+    ? `/sign-in?unlock=1&next=${encodeURIComponent(`/credential/sign?request=${requestToken}`)}`
     : offlineMode && toFingerprint
-      ? `/sign-in?next=${encodeURIComponent(`/credential/sign?mode=offline-credential&to=${toFingerprint}`)}`
-      : "/sign-in";
+      ? `/sign-in?unlock=1&next=${encodeURIComponent(`/credential/sign?mode=offline-credential&to=${toFingerprint}`)}`
+      : "/sign-in?unlock=1";
+
+  if (loading) {
+    return <p className="text-sm text-ink-muted">Loading…</p>;
+  }
+
+  if (!active && accounts.length > 0) {
+    return (
+      <div className="mx-auto max-w-md space-y-6">
+        <SectionHeader
+          as="h1"
+          serif
+          title="Unlock to sign"
+          description="Your account is saved on this device — enter your password to unlock it and sign this credential."
+        />
+        <AccountUnlockForm
+          accounts={accounts}
+          unlock={unlock}
+          onDone={() => {
+            /* AuthProvider re-renders with active account */
+          }}
+          compact
+        />
+        <p className="text-center text-sm text-ink-muted">
+          Not you?{" "}
+          <Link href={signInHref} className="font-medium text-accent hover:text-accent-hover">
+            Switch account
+          </Link>
+          {" · "}
+          <Link href="/sign-in?new=1" className="font-medium text-accent hover:text-accent-hover">
+            Create new account
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   if (!active) {
+    const returnPath =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "/credential/sign";
+    const createHref = `/sign-in?new=1&next=${encodeURIComponent(returnPath)}`;
     return (
       <InlineNotice tone="info" title="Sign in to issue credentials">
-        Signing a credential uses your account&apos;s private key.{" "}
-        <Link href={signInHref} className="font-medium text-accent hover:text-accent-hover">
-          Sign in
+        No account on this device yet.{" "}
+        <Link href={createHref} className="font-medium text-accent hover:text-accent-hover">
+          Create an account
         </Link>{" "}
         to continue.
       </InlineNotice>
