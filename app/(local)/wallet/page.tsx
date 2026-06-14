@@ -6,6 +6,7 @@ export default function WalletPage() {
     <AppShell
       context="Wallet"
       links={[{ href: "/provider", label: "Provider" }]}
+      background="plain"
     >
       <WalletContent />
     </AppShell>

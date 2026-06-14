@@ -9,6 +9,7 @@ export interface AppShellProps {
   context?: string;
   contained?: boolean;
   className?: string;
+  background?: "gradient" | "plain";
 }
 
 export function AppShell({
@@ -17,9 +18,17 @@ export function AppShell({
   context,
   contained = true,
   className,
+  background = "gradient",
 }: AppShellProps) {
   return (
-    <div className="flex min-h-full flex-col bg-[linear-gradient(135deg,rgba(25,128,127,0.07),transparent_32rem),var(--canvas)]">
+    <div
+      className={cn(
+        "flex min-h-full flex-col",
+        background === "gradient"
+          ? "bg-[linear-gradient(135deg,rgba(25,128,127,0.07),transparent_32rem),var(--canvas)]"
+          : "bg-canvas",
+      )}
+    >
       <Header links={links} context={context} trailing={<AccountSwitcher />} />
       <main
         className={cn(
