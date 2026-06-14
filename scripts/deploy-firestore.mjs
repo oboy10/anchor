@@ -26,6 +26,24 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+function resolveFirebaseBin() {
+  const localBin = join(root, "node_modules", ".bin", "firebase");
+  if (existsSync(localBin)) return localBin;
+  // Fallback for environments where .bin is not materialized yet.
+  return process.platform === "win32" ? "npx.cmd" : "npx";
+}
+
+function firebaseDeployArgs(projectId) {
+  const localBin = join(root, "node_modules", ".bin", "firebase");
+  const usesNpx = !existsSync(localBin);
+  return {
+    command: resolveFirebaseBin(),
+    args: usesNpx
+      ? ["firebase", "deploy", "--only", "firestore:rules,firestore:indexes", "--project", projectId, "--non-interactive", "--force"]
+      : ["deploy", "--only", "firestore:rules,firestore:indexes", "--project", projectId, "--non-interactive", "--force"],
+  };
+}
+
 // Load .env.local for local runs. On Vercel the vars are already in env, and
 // the file won't exist there — dotenv is a no-op then.
 const envPath = resolve(root, ".env.local");
@@ -61,25 +79,32 @@ writeFileSync(
 );
 
 try {
-  const result = spawnSync(
-    "firebase",
-    [
-      "deploy",
-      "--only",
-      "firestore:rules,firestore:indexes",
-      "--project",
-      projectId,
-      "--non-interactive",
-      "--force",
-    ],
-    {
-      cwd: root,
-      stdio: "inherit",
-      env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: keyPath },
-    },
-  );
+  const { command, args } = firebaseDeployArgs(projectId);
+  const result = spawnSync(command, args, {
+    cwd: root,
+    stdio: "inherit",
+    env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: keyPath },
+  });
+  if (result.error) {
+    console.error("[deploy-firestore]", result.error.message);
+    if (process.env.VERCEL) {
+      console.warn(
+        "[deploy-firestore] Continuing Vercel build without Firestore deploy. " +
+          "Run `npm run firestore:deploy` locally if rules changed.",
+      );
+      process.exit(0);
+    }
+    process.exit(1);
+  }
   if (result.status !== 0) {
     console.error("[deploy-firestore] firebase deploy failed.");
+    if (process.env.VERCEL) {
+      console.warn(
+        "[deploy-firestore] Continuing Vercel build without Firestore deploy. " +
+          "Run `npm run firestore:deploy` locally if rules changed.",
+      );
+      process.exit(0);
+    }
     process.exit(result.status ?? 1);
   }
   console.log("[deploy-firestore] Rules + indexes deployed.");
