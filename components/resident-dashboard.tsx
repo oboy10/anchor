@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { BuildPacketButton } from "./build-packet-button";
+import { OfflineCredentialMenu } from "./offline-credential-menu";
 import { RequestCredentialDialog } from "./request-credential-dialog";
 import { FilterChips } from "./filter-chips";
 import { MetricCard } from "./metric-card";
@@ -38,6 +39,7 @@ export function ResidentDashboard({
   const [saving, setSaving] = React.useState(false);
   const [copiedFingerprint, setCopiedFingerprint] = React.useState(false);
   const [syncNotice, setSyncNotice] = React.useState<string | null>(null);
+  const [offlineNotice, setOfflineNotice] = React.useState<string | null>(null);
   const [syncing, setSyncing] = React.useState(false);
   const [requestOpen, setRequestOpen] = React.useState(false);
 
@@ -174,11 +176,19 @@ export function ResidentDashboard({
               <Mail className="size-4" aria-hidden />
               {syncing ? "Checking email…" : "Check email inbox"}
             </Button>
+            <OfflineCredentialMenu
+              fingerprint={resident.fingerprint}
+              displayName={resident.displayName}
+              onNotice={setOfflineNotice}
+            />
             <BuildPacketButton residentId={resident.slug} credentials={credentials} />
           </div>
         </div>
         {syncNotice ? (
           <p className="mt-3 text-sm font-medium text-accent-ink">{syncNotice}</p>
+        ) : null}
+        {offlineNotice ? (
+          <p className="mt-3 text-sm font-medium text-accent-ink">{offlineNotice}</p>
         ) : null}
         <div className="mt-4">
           <FilterChips active={filter} onChange={setFilter} counts={counts} />

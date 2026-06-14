@@ -1,22 +1,26 @@
 "use client";
 
 import * as React from "react";
-import { Mail } from "lucide-react";
+import { Download, Mail } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "./auth-provider";
-import { sendCredentialByEmailAction } from "@/lib/local/actions";
+import { sendCredentialByEmailAction, signCredentialAction } from "@/lib/local/actions";
+import { exportCredentialFile } from "@/lib/local/portable";
 import { CredentialCard } from "./credential-card";
 import { SectionHeader } from "./section-header";
 import { FormField, SelectField, TextAreaField } from "./ui/field";
 import { InlineNotice } from "./ui/inline-notice";
 import { Button } from "./ui/button";
+import { cn } from "@/lib/cn";
 import {
   CREDENTIAL_TYPE_LABELS,
   ISSUER_TYPE_LABELS,
   type CredentialType,
   type IssuerType,
 } from "@/types";
+
+type DeliveryMode = "email" | "offline-credential";
 
 interface LoadedRequest {
   token: string;
@@ -27,22 +31,39 @@ interface LoadedRequest {
   expiresAt: string;
 }
 
+function fingerprintFromNestedUrl(raw: string | null): string {
+  if (!raw || typeof window === "undefined") return "";
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.origin !== window.location.origin) return "";
+    return parsed.searchParams.get("to") ?? parsed.searchParams.get("fingerprint") ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /**
- * Sign a credential and deliver it by email. The recipient opens a link to add
- * it to their wallet — no file upload required.
+ * Sign a credential for delivery by email or as an offline `.anchor` file.
  */
 export function CredentialSigner() {
   const { active } = useAuth();
   const params = useSearchParams();
   const presetEmail = params.get("email") ?? "";
   const requestToken = params.get("request")?.trim() ?? "";
+  const presetTo =
+    params.get("to") ??
+    params.get("fingerprint") ??
+    fingerprintFromNestedUrl(params.get("url"));
+  const initialMode: DeliveryMode =
+    params.get("mode") === "offline-credential" ? "offline-credential" : "email";
 
   const [loadedRequest, setLoadedRequest] = React.useState<LoadedRequest | null>(null);
   const [requestLoading, setRequestLoading] = React.useState(!!requestToken);
   const [requestError, setRequestError] = React.useState<string | null>(null);
 
+  const [deliveryMode, setDeliveryMode] = React.useState<DeliveryMode>(initialMode);
   const [toEmail, setToEmail] = React.useState(presetEmail);
-  const [toFingerprint, setToFingerprint] = React.useState<string | undefined>();
+  const [toFingerprint, setToFingerprint] = React.useState(presetTo);
   const [issuerName, setIssuerName] = React.useState("");
   const issuerType: IssuerType = active?.issuerType ?? "caseworker";
   const [credentialType, setCredentialType] =
@@ -58,12 +79,14 @@ export function CredentialSigner() {
 
   const fromFingerprint = active?.fingerprint ?? "";
   const lockedRecipient = !!loadedRequest && loadedRequest.status === "pending";
+  const offlineMode = deliveryMode === "offline-credential" && !lockedRecipient;
 
   React.useEffect(() => {
     if (!requestToken) return;
     let activeEffect = true;
     setRequestLoading(true);
     setRequestError(null);
+    setDeliveryMode("email");
     fetch(`/api/credential/request/${encodeURIComponent(requestToken)}`)
       .then(async (res) => {
         const data = (await res.json()) as {
@@ -105,7 +128,7 @@ export function CredentialSigner() {
     };
   }, [requestToken]);
 
-  const previewRecipient = toFingerprint ?? "0000000000000000";
+  const previewRecipient = toFingerprint.trim() || "0000000000000000";
 
   const previewCredential = {
     id: "preview",
@@ -132,20 +155,24 @@ export function CredentialSigner() {
     },
   };
 
-  async function handleSend() {
+  const credentialInput = {
+    issuerName,
+    issuerType,
+    credentialType,
+    title,
+    summary,
+    metric: metric || undefined,
+    facts: factLabel && factValue ? [{ label: factLabel, value: factValue }] : [],
+  };
+
+  async function handleEmailSend() {
     setPending(true);
     setError(null);
     setSuccess(null);
     const result = await sendCredentialByEmailAction({
       toEmail: lockedRecipient ? undefined : toEmail,
       toFingerprint: lockedRecipient ? toFingerprint : undefined,
-      issuerName,
-      issuerType,
-      credentialType,
-      title,
-      summary,
-      metric: metric || undefined,
-      facts: factLabel && factValue ? [{ label: factLabel, value: factValue }] : [],
+      ...credentialInput,
       requestToken: lockedRecipient ? requestToken : undefined,
     });
     setPending(false);
@@ -166,9 +193,38 @@ export function CredentialSigner() {
     );
   }
 
+  async function handleOfflineSign() {
+    setPending(true);
+    setError(null);
+    setSuccess(null);
+    const result = await signCredentialAction({
+      toFingerprint,
+      ...credentialInput,
+    });
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    await exportCredentialFile(result.attestation, title);
+    setSuccess(
+      "Credential signed and downloaded. Send the `.anchor` file to the recipient — they import it with Offline credential → Upload.",
+    );
+  }
+
+  async function handleSubmit() {
+    if (offlineMode) {
+      await handleOfflineSign();
+      return;
+    }
+    await handleEmailSend();
+  }
+
   const signInHref = requestToken
     ? `/sign-in?next=${encodeURIComponent(`/credential/sign?request=${requestToken}`)}`
-    : "/sign-in";
+    : offlineMode && toFingerprint
+      ? `/sign-in?next=${encodeURIComponent(`/credential/sign?mode=offline-credential&to=${toFingerprint}`)}`
+      : "/sign-in";
 
   if (!active) {
     return (
@@ -183,9 +239,7 @@ export function CredentialSigner() {
   }
 
   if (requestLoading) {
-    return (
-      <p className="text-sm text-ink-muted">Loading credential request…</p>
-    );
+    return <p className="text-sm text-ink-muted">Loading credential request…</p>;
   }
 
   if (requestError) {
@@ -201,13 +255,38 @@ export function CredentialSigner() {
       <SectionHeader
         as="h1"
         serif
-        title={lockedRecipient ? "Sign requested credential" : "Issue a credential"}
+        title={
+          lockedRecipient
+            ? "Sign requested credential"
+            : offlineMode
+              ? "Offline credential"
+              : "Issue a credential"
+        }
         description={
           lockedRecipient
             ? `${loadedRequest?.requesterName} asked you to sign a credential. Fill in the details below — it will be delivered to their wallet when you sign.`
-            : "Enter the recipient's verified email. Anchor signs the credential and emails them a link to add it to their wallet."
+            : offlineMode
+              ? "Sign a credential and download a file to hand off directly — no email or server required."
+              : "Enter the recipient's verified email. Anchor signs the credential and emails them a link to add it to their wallet."
         }
       />
+
+      {!lockedRecipient ? (
+        <div className="flex gap-2 rounded-lg border border-line bg-surface-sunken p-1">
+          <ModeTab
+            active={deliveryMode === "email"}
+            onClick={() => setDeliveryMode("email")}
+          >
+            Email delivery
+          </ModeTab>
+          <ModeTab
+            active={deliveryMode === "offline-credential"}
+            onClick={() => setDeliveryMode("offline-credential")}
+          >
+            Offline credential
+          </ModeTab>
+        </div>
+      ) : null}
 
       {lockedRecipient && loadedRequest?.message ? (
         <InlineNotice tone="info" title="Their note">
@@ -216,7 +295,7 @@ export function CredentialSigner() {
       ) : null}
 
       {success ? (
-        <InlineNotice tone="calm" title="Credential sent">
+        <InlineNotice tone="calm" title={offlineMode ? "Credential exported" : "Credential sent"}>
           {success}
         </InlineNotice>
       ) : null}
@@ -226,7 +305,7 @@ export function CredentialSigner() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            handleSend();
+            handleSubmit();
           }}
         >
           {lockedRecipient ? (
@@ -237,6 +316,16 @@ export function CredentialSigner() {
                 <span className="font-mono text-xs">{loadedRequest?.requesterFingerprint}</span>
               </p>
             </div>
+          ) : offlineMode ? (
+            <FormField
+              label="Recipient fingerprint"
+              hint="16-character identity from their wallet (they can copy it from their record)."
+              value={toFingerprint}
+              onChange={(e) => setToFingerprint(e.target.value.trim().toLowerCase())}
+              placeholder="abcd1234abcd1234"
+              required
+              className="font-mono"
+            />
           ) : (
             <FormField
               label="Recipient email"
@@ -326,15 +415,21 @@ export function CredentialSigner() {
                 pending ||
                 !title.trim() ||
                 !summary.trim() ||
-                (!lockedRecipient && !toEmail.trim())
+                (offlineMode ? !toFingerprint.trim() : !lockedRecipient && !toEmail.trim())
               }
             >
-              <Mail className="size-4" aria-hidden />
+              {offlineMode ? (
+                <Download className="size-4" aria-hidden />
+              ) : (
+                <Mail className="size-4" aria-hidden />
+              )}
               {pending
                 ? "Signing…"
-                : lockedRecipient
-                  ? "Sign & deliver credential"
-                  : "Sign & email credential"}
+                : offlineMode
+                  ? "Sign & download file"
+                  : lockedRecipient
+                    ? "Sign & deliver credential"
+                    : "Sign & email credential"}
             </Button>
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -350,12 +445,37 @@ export function CredentialSigner() {
             </p>
           )}
           <InlineNotice tone="info" className="mt-4">
-            {lockedRecipient
-              ? "When you sign, the credential is delivered directly to their wallet — no extra step for them."
-              : "The signed credential is stored briefly on Firebase until the recipient accepts it. Nothing is added to their wallet until they open the email link."}
+            {offlineMode
+              ? "The downloaded `.anchor` file contains a signed attestation. Nothing is stored on a server — hand the file to the recipient directly."
+              : lockedRecipient
+                ? "When you sign, the credential is delivered directly to their wallet — no extra step for them."
+                : "The signed credential is stored briefly on Firebase until the recipient accepts it. Nothing is added to their wallet until they open the email link."}
           </InlineNotice>
         </div>
       </div>
     </div>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        active ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
   );
 }
