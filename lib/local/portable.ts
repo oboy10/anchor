@@ -114,9 +114,17 @@ export async function exportCredentialFile(
   input: Credential | Attestation,
   title?: string,
 ): Promise<void> {
-  const credential = isCredential(input) ? input : undefined;
-  const attestation = credential ? credential.attestation : input;
-  const issuerFingerprint = credential?.issuerFingerprint ?? attestation.from;
+  let credential: Credential | undefined;
+  let attestation: Attestation;
+  let issuerFingerprint: string;
+  if (isCredential(input)) {
+    credential = input;
+    attestation = input.attestation;
+    issuerFingerprint = input.issuerFingerprint;
+  } else {
+    attestation = input;
+    issuerFingerprint = input.from;
+  }
   const [user, provider] = await Promise.all([
     getUserByFingerprint(issuerFingerprint),
     getProviderByFingerprint(issuerFingerprint),
