@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import { shortFingerprint } from "@/lib/format";
 import { isUnlocked } from "@/lib/local/accounts";
 import {
     Check,
@@ -98,7 +97,7 @@ export function AccountSwitcher() {
           >
             <p className="text-sm font-medium text-ink">{active.label}</p>
             <p className="mt-0.5 font-mono text-xs text-ink-muted">
-              {shortFingerprint(active.fingerprint)} · View dashboard
+              {active.fingerprint} · View dashboard
             </p>
             {active.verifiedEmail || active.verifiedPhone ? (
               <p className="mt-1 flex items-center gap-1 text-xs text-accent">
@@ -123,7 +122,7 @@ export function AccountSwitcher() {
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{a.label}</span>
                       <span className="block font-mono text-xs text-ink-muted">
-                        {shortFingerprint(a.fingerprint)}
+                        {a.fingerprint}
                       </span>
                     </span>
                     <span

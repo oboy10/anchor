@@ -17,7 +17,7 @@ import type { PortableAccount } from "@/lib/crypto/archive";
 import { userFromPrivateSeed } from "@/lib/crypto/user";
 import { decryptSeed, encryptSeed, type Vault } from "@/lib/crypto/vault";
 import { registerLocalIdentity, setActiveResident } from "./db";
-import type { Fingerprint, PublicKeyHex, User } from "@/types";
+import type { Fingerprint, IssuerType, PublicKeyHex, User } from "@/types";
 
 const ACCOUNTS_KEY = "anchor.accounts.v1";
 const ACTIVE_ACCOUNT_KEY = "anchor.activeAccount";
@@ -33,6 +33,8 @@ export interface AccountMeta {
   vault: Vault;
   verifiedEmail?: string;
   verifiedPhone?: string;
+  /** Default issuer type applied to credentials this identity signs. */
+  issuerType?: IssuerType;
 }
 
 interface PersistedAccounts {
@@ -272,6 +274,19 @@ export function deleteAccount(fingerprint: Fingerprint): void {
   if (isBrowser() && localStorage.getItem(ACTIVE_ACCOUNT_KEY) === fingerprint) {
     localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
   }
+  emit();
+}
+
+/** Set the default issuer type used when this identity signs credentials. */
+export function setIssuerType(
+  fingerprint: Fingerprint,
+  issuerType: IssuerType,
+): void {
+  writeAccounts(
+    readAccounts().map((a) =>
+      a.fingerprint === fingerprint ? { ...a, issuerType } : a,
+    ),
+  );
   emit();
 }
 

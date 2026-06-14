@@ -7,7 +7,8 @@ import { cn } from "@/lib/cn";
 const TABS = [
   { href: "/wallet", label: "Records" },
   { href: "/wallet/packets", label: "Packets" },
-  { href: "/wallet/identity", label: "Verify identity" },
+  { href: "/wallet/issue", label: "Issue credential" },
+  { href: "/wallet/identity", label: "Edit profile" },
 ];
 
 /** Sub-navigation between the wallet's records and identity-verification pages. */

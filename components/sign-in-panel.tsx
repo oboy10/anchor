@@ -1,14 +1,13 @@
 "use client";
 
+import { KeyRound, Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { KeyRound, Plus } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import { SectionHeader } from "./section-header";
-import { FormField } from "./ui/field";
 import { Button } from "./ui/button";
+import { FormField } from "./ui/field";
 import { InlineNotice } from "./ui/inline-notice";
-import { shortFingerprint } from "@/lib/format";
 
 /**
  * Sign-in surface for local keypair accounts: create a new password-protected
@@ -210,7 +209,7 @@ function UnlockForm({
             <span className="min-w-0">
               <span className="block truncate font-medium text-ink">{a.label}</span>
               <span className="block font-mono text-xs text-ink-muted">
-                {shortFingerprint(a.fingerprint)}
+                {a.fingerprint}
               </span>
             </span>
           </label>

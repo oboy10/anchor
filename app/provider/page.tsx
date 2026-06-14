@@ -1,36 +1,28 @@
 "use client";
 
-import { AppShell } from "@/components/app-shell";
-import { ProviderConsole } from "@/components/provider-console";
-import { LocalDataGate } from "@/components/local-data-gate";
-import { useLocalQuery } from "@/lib/local/hooks";
-import { listProviders, listResidents } from "@/lib/local/db";
+import * as React from "react";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+/**
+ * Issuers and users are the same identity now — credential signing lives in the
+ * wallet dashboard. This route just forwards (preserving query params) so older
+ * links keep working.
+ */
+function ProviderRedirect() {
+  const router = useRouter();
+  const params = useSearchParams();
+  React.useEffect(() => {
+    const qs = params.toString();
+    router.replace(`/wallet/issue${qs ? `?${qs}` : ""}`);
+  }, [router, params]);
+  return null;
+}
 
 export default function ProviderPage() {
-  const query = useLocalQuery(async () => {
-    const [providers, residents] = await Promise.all([
-      listProviders(),
-      listResidents(),
-    ]);
-    return { providers, residents };
-  }, []);
-
   return (
-    <AppShell
-      context="Provider"
-      links={[
-        { href: "/wallet", label: "Wallet" },
-        { href: "/admin", label: "Admin" },
-      ]}
-    >
-      <LocalDataGate loading={query.loading}>
-        {query.data ? (
-          <ProviderConsole
-            providers={query.data.providers}
-            residents={query.data.residents}
-          />
-        ) : null}
-      </LocalDataGate>
-    </AppShell>
+    <Suspense fallback={null}>
+      <ProviderRedirect />
+    </Suspense>
   );
 }

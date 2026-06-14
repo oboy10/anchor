@@ -376,6 +376,25 @@ export async function addVouch(
   await commit(store);
 }
 
+/**
+ * Store a self-signed profile vouch (from === to === the user). Replaces any
+ * previous self-vouch so only the latest profile values are kept; vouches
+ * signed by other parties (e.g. the Anchor verifier for email/phone) are left
+ * untouched. The user's public key is already in the ledger, so it verifies.
+ */
+export async function setSelfVouch(
+  fingerprint: Fingerprint,
+  attestation: Attestation,
+): Promise<void> {
+  const store = await load();
+  const list = (store.vouches.get(fingerprint) ?? []).filter(
+    (v) => v.from !== fingerprint,
+  );
+  list.push(attestation);
+  store.vouches.set(fingerprint, list);
+  await commit(store);
+}
+
 export async function getVouches(idOrSlug: string): Promise<Attestation[]> {
   const fp = await resolveFingerprint(idOrSlug);
   if (!fp) return [];

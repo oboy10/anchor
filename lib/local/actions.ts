@@ -13,9 +13,19 @@ import {
   resetData,
   revokePacket,
   setResidentNote,
+  setSelfVouch,
 } from "./db";
+import { getActiveAccount, getUnlockedUser } from "./accounts";
 import { buildShareUrl } from "./share-link";
-import type { CredentialType, SharePacket } from "@/types";
+import { buildCredentialProperties, signAttestation } from "@/lib/crypto/attestation";
+import { bytesToHex, randomBytes } from "@/lib/crypto/bytes";
+import type {
+  Attestation,
+  AttestationProperty,
+  CredentialType,
+  IssuerType,
+  SharePacket,
+} from "@/types";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function isValidEmail(value: string): boolean {
@@ -202,4 +212,98 @@ export async function setResidentNoteAction(
 export async function resetDataAction() {
   await resetData();
   return { ok: true as const };
+}
+
+/** Property keys for self-signed profile attributes. */
+export const PROFILE_PROP = {
+  NAME: "a.id:name",
+  DESCRIPTION: "a.id:description",
+} as const;
+
+export interface SaveProfileActionInput {
+  name: string;
+  description: string;
+}
+
+/**
+ * Save the active identity's display name and description as a self-signed
+ * vouch (from === to === the user), proving the values were set by the key
+ * holder. Re-signing replaces the previous self-vouch.
+ */
+export async function saveProfileAction(input: SaveProfileActionInput) {
+  const account = getActiveAccount();
+  if (!account) {
+    return { ok: false as const, error: "Sign in to edit your profile." };
+  }
+  const user = getUnlockedUser(account.fingerprint);
+  if (!user?.privateKey) {
+    return { ok: false as const, error: "Your account is locked." };
+  }
+
+  const properties: AttestationProperty[] = [];
+  const name = input.name.trim();
+  const description = input.description.trim();
+  if (name) properties.push({ key: PROFILE_PROP.NAME, value: name });
+  if (description) properties.push({ key: PROFILE_PROP.DESCRIPTION, value: description });
+
+  const attestation = await signAttestation(user, user.fingerprint, properties);
+  await setSelfVouch(user.fingerprint, attestation);
+  return { ok: true as const };
+}
+
+const FINGERPRINT_PATTERN = /^[0-9a-f]{16}$/;
+
+export interface SignCredentialActionInput {
+  /** Recipient (subject) identity fingerprint — 16 hex chars. */
+  toFingerprint: string;
+  issuerName: string;
+  issuerType: IssuerType;
+  credentialType: CredentialType;
+  title: string;
+  summary: string;
+  metric?: string;
+  facts?: { label: string; value: string }[];
+}
+
+/**
+ * Sign a credential for an arbitrary fingerprint using the active account's
+ * unlocked key. The result is a standalone signed attestation — it is NOT added
+ * to any local ledger here; the caller exports it as a file for the recipient
+ * to import. Anyone holding the issuer's public key can verify it offline.
+ */
+export async function signCredentialAction(input: SignCredentialActionInput) {
+  const to = input.toFingerprint.trim().toLowerCase();
+  if (!FINGERPRINT_PATTERN.test(to)) {
+    return { ok: false as const, error: "Enter a valid 16-character fingerprint." };
+  }
+  if (!input.title.trim() || !input.summary.trim()) {
+    return { ok: false as const, error: "Title and summary are required." };
+  }
+  const account = getActiveAccount();
+  if (!account) {
+    return { ok: false as const, error: "Sign in to an account to sign credentials." };
+  }
+  const issuer = getUnlockedUser(account.fingerprint);
+  if (!issuer?.privateKey) {
+    return { ok: false as const, error: "Your account is locked." };
+  }
+
+  const credentialId = `c_${bytesToHex(randomBytes(4))}`;
+  const issueDate = new Date().toISOString();
+  const properties = buildCredentialProperties({
+    credentialId,
+    credentialType: input.credentialType,
+    issueDate,
+    title: input.title.trim(),
+    summary: input.summary.trim(),
+    issuerName: input.issuerName.trim() || account.label,
+    issuerType: input.issuerType,
+    metric: input.metric?.trim() || undefined,
+    facts: (input.facts ?? []).filter((f) => f.label.trim() && f.value.trim()),
+  });
+
+  const signed = await signAttestation(issuer, to, properties);
+  // Carry the denormalized fields the ledger stores, so an import round-trips.
+  const attestation: Attestation = { ...signed, credentialId, issueDate } as Attestation;
+  return { ok: true as const, attestation, credentialId };
 }

@@ -9,6 +9,7 @@
  * its records back in. Exported account vaults stay AES-GCM encrypted.
  */
 import { decodeArchive, encodeArchive } from "@/lib/crypto/archive";
+import type { Attestation } from "@/types";
 import { getAccount, importAccounts } from "./accounts";
 import {
   exportActiveLedger,
@@ -50,6 +51,19 @@ export function exportAccountFile(fingerprint: string): void {
     account.label.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() ||
     account.fingerprint.slice(0, 8);
   downloadBytes(bytes, `anchor-account-${slug}-${stamp()}.${FILE_EXT}`);
+}
+
+/** Download a single signed credential attestation as a binary file. */
+export function exportCredentialFile(attestation: Attestation, title?: string): void {
+  const bytes = encodeArchive({
+    accounts: [],
+    attestations: [attestation],
+    packets: [],
+  });
+  const slug =
+    (title ?? "").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() ||
+    "credential";
+  downloadBytes(bytes, `anchor-credential-${slug}-${stamp()}.${FILE_EXT}`);
 }
 
 /** Merge accounts from a picked binary file. Returns the number added. */

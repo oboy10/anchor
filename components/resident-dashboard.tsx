@@ -35,7 +35,18 @@ export function ResidentDashboard({
   const [noteTarget, setNoteTarget] = React.useState<Credential | null>(null);
   const [noteText, setNoteText] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [copiedFingerprint, setCopiedFingerprint] = React.useState(false);
   const importRef = React.useRef<HTMLInputElement>(null);
+
+  async function copyFingerprint() {
+    try {
+      await navigator.clipboard.writeText(resident.fingerprint);
+      setCopiedFingerprint(true);
+      setTimeout(() => setCopiedFingerprint(false), 2000);
+    } catch {
+      /* clipboard unavailable — ignore */
+    }
+  }
 
   async function handleImportLedger(file: File) {
     try {
@@ -103,8 +114,9 @@ export function ResidentDashboard({
           <MetricCard
             label="Verified identity"
             value={shortFingerprint(resident.fingerprint)}
-            detail="Ed25519 fingerprint"
+            detail={copiedFingerprint ? "Copied to clipboard" : "Ed25519 fingerprint · click to copy"}
             icon={<ShieldCheck className="size-4" aria-hidden />}
+            onClick={copyFingerprint}
           />
           <MetricCard
             label="Housing stability"

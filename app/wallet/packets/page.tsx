@@ -38,7 +38,7 @@ export default function PacketsPage() {
   if (!loading && !active) return null;
 
   return (
-    <AppShell context="Wallet" links={[{ href: "/provider", label: "Provider" }]}>
+    <AppShell context="Wallet">
       <WalletTabs />
       <div className="mt-8">
         <LocalDataGate

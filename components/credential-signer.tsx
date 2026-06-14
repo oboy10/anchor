@@ -1,50 +1,57 @@
 "use client";
 
 import * as React from "react";
-import { issueCredentialAction } from "@/lib/local/actions";
+import { Download } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "./auth-provider";
+import { signCredentialAction } from "@/lib/local/actions";
+import { exportCredentialFile } from "@/lib/local/portable";
 import { CredentialCard } from "./credential-card";
 import { SectionHeader } from "./section-header";
 import { FormField, SelectField, TextAreaField } from "./ui/field";
 import { InlineNotice } from "./ui/inline-notice";
 import { Button } from "./ui/button";
-import { StatusBadge } from "./ui/status-badge";
 import {
   CREDENTIAL_TYPE_LABELS,
+  ISSUER_TYPE_LABELS,
   type CredentialType,
-  type Provider,
-  type Resident,
+  type IssuerType,
 } from "@/types";
 
-export interface ProviderConsoleProps {
-  providers: Provider[];
-  residents: Resident[];
-}
+/**
+ * Sign a credential for any fingerprint with the active account's key and
+ * export it as a binary file. The recipient imports it into their wallet with
+ * "Add credentials". The target fingerprint can be typed or autofilled from a
+ * `?to=<fingerprint>` URL parameter.
+ */
+export function CredentialSigner() {
+  const { active } = useAuth();
+  const params = useSearchParams();
+  const presetTo = params.get("to") ?? params.get("fingerprint") ?? "";
 
-export function ProviderConsole({ providers, residents }: ProviderConsoleProps) {
-  const [issuerId, setIssuerId] = React.useState(providers[0]?.slug ?? "");
-  const [residentId, setResidentId] = React.useState(residents[0]?.slug ?? "");
-  const [credentialType, setCredentialType] = React.useState<CredentialType>(
-    "on_time_payment",
-  );
+  const [toFingerprint, setToFingerprint] = React.useState(presetTo);
+  const [issuerName, setIssuerName] = React.useState("");
+  const issuerType: IssuerType = active?.issuerType ?? "caseworker";
+  const [credentialType, setCredentialType] =
+    React.useState<CredentialType>("on_time_payment");
   const [title, setTitle] = React.useState("");
   const [summary, setSummary] = React.useState("");
   const [metric, setMetric] = React.useState("");
   const [factLabel, setFactLabel] = React.useState("");
   const [factValue, setFactValue] = React.useState("");
-  const [showPreview, setShowPreview] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  const issuer = providers.find((p) => p.slug === issuerId);
-  const resident = residents.find((r) => r.slug === residentId);
+  const fromFingerprint = active?.fingerprint ?? "";
 
   const previewCredential = {
     id: "preview",
-    residentFingerprint: resident?.fingerprint ?? "",
-    issuerFingerprint: issuer?.fingerprint ?? "",
-    issuerName: issuer?.name ?? "",
-    issuerType: issuer?.type ?? ("shelter" as const),
+    residentFingerprint: toFingerprint,
+    issuerFingerprint: fromFingerprint,
+    issuerName: issuerName || active?.label || "You",
+    issuerType,
     credentialType,
     issueDate: new Date().toISOString(),
     title: title || "Credential title",
@@ -52,26 +59,26 @@ export function ProviderConsole({ providers, residents }: ProviderConsoleProps) 
     evidence: {
       metric: metric || undefined,
       facts:
-        factLabel && factValue
-          ? [{ label: factLabel, value: factValue }]
-          : undefined,
+        factLabel && factValue ? [{ label: factLabel, value: factValue }] : undefined,
     },
     status: "active" as const,
     attestation: {
-      from: issuer?.fingerprint ?? "",
-      to: resident?.fingerprint ?? "",
+      from: fromFingerprint,
+      to: toFingerprint,
       properties: [],
       nonce: "preview",
       signature: "",
     },
   };
 
-  async function handleIssue() {
+  async function handleSign() {
     setPending(true);
     setError(null);
-    const result = await issueCredentialAction({
-      residentId,
-      issuerId,
+    setSuccess(null);
+    const result = await signCredentialAction({
+      toFingerprint,
+      issuerName,
+      issuerType,
       credentialType,
       title,
       summary,
@@ -80,17 +87,25 @@ export function ProviderConsole({ providers, residents }: ProviderConsoleProps) 
     });
     setPending(false);
     if (!result.ok) {
-      setError(result.error ?? "Could not issue credential.");
+      setError(result.error);
       return;
     }
-    setSuccess(`Credential issued and added to the resident's ledger.`);
-    setTitle("");
-    setSummary("");
-    setMetric("");
-    setFactLabel("");
-    setFactValue("");
-    setShowPreview(false);
-    setTimeout(() => setSuccess(null), 5000);
+    exportCredentialFile(result.attestation, title);
+    setSuccess(
+      "Credential signed and downloaded. Send the file to the recipient — they import it with “Add credentials”.",
+    );
+  }
+
+  if (!active) {
+    return (
+      <InlineNotice tone="info" title="Sign in to issue credentials">
+        Signing a credential uses your account&apos;s private key.{" "}
+        <Link href="/sign-in" className="font-medium text-accent hover:text-accent-hover">
+          Sign in
+        </Link>{" "}
+        to continue.
+      </InlineNotice>
+    );
   }
 
   return (
@@ -98,12 +113,12 @@ export function ProviderConsole({ providers, residents }: ProviderConsoleProps) 
       <SectionHeader
         as="h1"
         serif
-        title="Issue a credential"
-        description="Add a verified positive entry to a resident's record. Past entries cannot be edited — only corrected with a new entry."
+        title="Sign a credential"
+        description="Attest a positive, verifiable entry for someone by their identity fingerprint, then export it as a file for them to import."
       />
 
       {success ? (
-        <InlineNotice tone="calm" title="Credential issued">
+        <InlineNotice tone="calm" title="Credential signed">
           {success}
         </InlineNotice>
       ) : null}
@@ -113,31 +128,38 @@ export function ProviderConsole({ providers, residents }: ProviderConsoleProps) 
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            setShowPreview(true);
+            handleSign();
           }}
         >
-          <SelectField
-            label="Issuing as"
-            value={issuerId}
-            onChange={(e) => setIssuerId(e.target.value)}
-            options={providers.map((p) => ({
-              value: p.slug,
-              label: `${p.name}${p.verified ? "" : " (unverified)"}`,
-            }))}
+          <FormField
+            label="Recipient fingerprint"
+            hint="The 16-character identity fingerprint of the person you're crediting."
+            value={toFingerprint}
+            onChange={(e) => setToFingerprint(e.target.value)}
+            placeholder="a1b2c3d4e5f60718"
+            className="font-mono"
+            required
           />
-          {issuer?.verified ? (
-            <StatusBadge tone="verified">Verified issuer</StatusBadge>
-          ) : null}
 
-          <SelectField
-            label="Resident"
-            value={residentId}
-            onChange={(e) => setResidentId(e.target.value)}
-            options={residents.map((r) => ({
-              value: r.slug,
-              label: `${r.displayName}${r.city ? ` · ${r.city}` : ""}`,
-            }))}
+          <FormField
+            label="Signing as"
+            hint="Your account key signs the credential. This name is shown to the recipient."
+            value={issuerName}
+            onChange={(e) => setIssuerName(e.target.value)}
+            placeholder={active.label}
           />
+
+          <p className="text-sm text-ink-muted">
+            Issuing as{" "}
+            <span className="font-medium text-ink">{ISSUER_TYPE_LABELS[issuerType]}</span>
+            {" · "}
+            <Link
+              href="/wallet/identity"
+              className="font-medium text-accent hover:text-accent-hover"
+            >
+              Change in Edit profile
+            </Link>
+          </p>
 
           <SelectField
             label="Credential type"
@@ -189,16 +211,13 @@ export function ProviderConsole({ providers, residents }: ProviderConsoleProps) 
             />
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button type="submit" variant="secondary">
-              Preview
-            </Button>
+          <div className="pt-2">
             <Button
-              type="button"
-              disabled={pending || !title.trim() || !summary.trim()}
-              onClick={handleIssue}
+              type="submit"
+              disabled={pending || !title.trim() || !summary.trim() || !toFingerprint.trim()}
             >
-              {pending ? "Issuing…" : "Issue & sign"}
+              <Download className="size-4" aria-hidden />
+              {pending ? "Signing…" : "Sign & export file"}
             </Button>
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -206,17 +225,16 @@ export function ProviderConsole({ providers, residents }: ProviderConsoleProps) 
 
         <div>
           <p className="mb-3 text-sm font-medium text-ink-muted">Preview</p>
-          {showPreview || title ? (
+          {title ? (
             <CredentialCard credential={previewCredential} verified={false} />
           ) : (
             <p className="text-sm text-ink-muted">
-              Fill in the form to see how the credential will appear in the resident's
-              wallet.
+              Fill in the form to see how the credential will appear once imported.
             </p>
           )}
           <InlineNotice tone="info" className="mt-4">
-            Issuing appends to the ledger and signs the entry with your organization's
-            key. The resident is notified in their timeline immediately.
+            The exported file contains a single Ed25519-signed attestation. Nothing
+            is stored on a server — you hand the file to the recipient directly.
           </InlineNotice>
         </div>
       </div>

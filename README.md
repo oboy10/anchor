@@ -98,7 +98,7 @@ npm run firebase:cleanup
 | `/sign-in` | Create or unlock a local account |
 | `/wallet` | Resident wallet |
 | `/accounts` | Manage accounts (create, rename, export, import, delete) |
-| `/provider` | Issue credentials |
+| `/wallet/issue` | Issue/sign a credential for a fingerprint, export as a file |
 | `/verify` | Public verification (opens a resident's share link) |
 | `/admin` | Seed + inspect ledger |
 

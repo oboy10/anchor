@@ -65,8 +65,8 @@ export default function AdminPage() {
             </Link>
           </li>
           <li>
-            <Link href="/provider" className="text-accent hover:text-accent-hover">
-              Provider console
+            <Link href="/wallet/issue" className="text-accent hover:text-accent-hover">
+              Issue a credential
             </Link>
           </li>
         </ul>

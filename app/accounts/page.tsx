@@ -1,23 +1,22 @@
 "use client";
 
-import * as React from "react";
-import { Download, Plus, Upload } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { SectionHeader } from "@/components/section-header";
+import { useAuth } from "@/components/auth-provider";
 import { EmptyState } from "@/components/empty-state";
-import { InlineNotice } from "@/components/ui/inline-notice";
+import { SectionHeader } from "@/components/section-header";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/field";
-import { useAuth } from "@/components/auth-provider";
+import { InlineNotice } from "@/components/ui/inline-notice";
 import {
-  deleteAccount,
-  isUnlocked,
-  renameAccount,
-  type AccountMeta,
+    deleteAccount,
+    isUnlocked,
+    renameAccount,
+    type AccountMeta,
 } from "@/lib/local/accounts";
 import { exportAccountFile, importAccountsFile } from "@/lib/local/portable";
-import { shortFingerprint } from "@/lib/format";
+import { Download, Plus, Upload } from "lucide-react";
+import * as React from "react";
 
 export default function AccountsPage() {
   const { accounts, active, createAccount } = useAuth();
@@ -122,7 +121,7 @@ export default function AccountsPage() {
                       ) : null}
                     </p>
                     <p className="mt-0.5 font-mono text-xs text-ink-muted">
-                      {shortFingerprint(a.fingerprint)}
+                      {a.fingerprint}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
